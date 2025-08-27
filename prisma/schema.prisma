@@ -43,3 +43,10 @@ model Booking {
   status    String   @default("pending")
   createdAt DateTime @default(now())
 }
+model HajjPackage {
+  id        Int      @id @default(autoincrement())
+  title     String
+  price     Float
+  imageUrl  String
+  createdAt DateTime @default(now())
+}
