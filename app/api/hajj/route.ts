@@ -1,106 +1,214 @@
-// app/api/hajj/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
-// ---------------- GET: fetch all packages ----------------
+// ✅ Common CORS headers
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+// ---------------- GET ----------------
 export async function GET() {
   try {
     const packages = await prisma.hajjPackage.findMany({
-      orderBy: { createdAt: "desc" }, // latest first
+      orderBy: { createdAt: "desc" },
     });
 
-    console.log("📦 Packages fetched:", packages.length);
-
-    const headers = {
-      "Access-Control-Allow-Origin": "*", // ya specific frontend domain
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    };
-
-    return NextResponse.json(packages, { headers });
-  } catch (error) {
-    console.error("❌ GET /api/hajj error:", error);
+    return NextResponse.json(packages, { headers: corsHeaders });
+  } catch (error: any) {
+    console.error("❌ GET /api/hajj error:", error.message);
     return NextResponse.json(
-      { error: "Failed to fetch packages" },
-      { status: 500 }
+      { error: "Failed to fetch packages", details: error.message },
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// ---------------- POST: create new package ----------------
-export async function POST(req: Request) {
+// ---------------- POST (CREATE + UPDATE with Image) ----------------
+export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
+    const id = formData.get("id") as string | null;
     const title = formData.get("title") as string | null;
     const priceStr = formData.get("price") as string | null;
+    const category = formData.get("category") as string | null;
     const file = formData.get("file") as File | null;
+    const isActiveStr = formData.get("isActive") as string | null;
 
-    if (!title || !priceStr || !file) {
+    if (!title || !priceStr || !category) {
       return NextResponse.json(
-        { error: "Missing fields" },
-        { status: 400 }
+        { error: "Title, Price, and Category are required" },
+        { status: 400, headers: corsHeaders }
       );
     }
 
     const price = parseFloat(priceStr);
     if (isNaN(price) || price <= 0) {
       return NextResponse.json(
-        { error: "Invalid price" },
-        { status: 400 }
+        { error: "Price must be a valid number greater than 0" },
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    // file -> buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const isActive = isActiveStr === "true";
 
-    // upload to Cloudinary
-    const uploadRes: any = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "hajj-packages" },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      stream.end(buffer);
-    });
+    let imageUrl: string | undefined;
+    let publicId: string | undefined;
 
-    console.log("✅ Cloudinary upload:", uploadRes.secure_url);
+    // ✅ Cloudinary Upload
+    if (file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-    // save in DB
-    const saved = await prisma.hajjPackage.create({
-      data: {
-        title,
-        price,
-        imageUrl: uploadRes.secure_url,
-      },
-    });
+        const uploadRes: any = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: "hajj-packages",
+              width: 400,
+              height: 600,
+              crop: "fill",
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(buffer);
+        });
 
-    console.log("✅ Package saved in DB:", saved);
+        imageUrl = uploadRes.secure_url;
+        publicId = uploadRes.public_id;
+      } catch (err: any) {
+        console.error("❌ Cloudinary upload failed:", err.message);
+        return NextResponse.json(
+          { error: "Image upload failed", details: err.message },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+    }
 
-    const headers = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    };
+    let saved;
+    if (id) {
+      // ✅ Update existing package
+      saved = await prisma.hajjPackage.update({
+        where: { id: parseInt(id) },
+        data: {
+          title,
+          price,
+          category,
+          isActive,
+          ...(imageUrl ? { imageUrl, publicId } : {}),
+        },
+      });
+    } else {
+      // ✅ Create new package
+      saved = await prisma.hajjPackage.create({
+        data: {
+          title,
+          price,
+          category,
+          isActive,
+          imageUrl: imageUrl || "",
+          publicId: publicId || "",
+        },
+      });
+    }
 
-    return NextResponse.json(saved, { headers });
-  } catch (error) {
-    console.error("❌ POST /api/hajj error:", error);
+    return NextResponse.json(saved, { headers: corsHeaders });
+  } catch (error: any) {
+    console.error("❌ POST /api/hajj error:", error.message);
     return NextResponse.json(
-      { error: "Failed to save package" },
-      { status: 500 }
+      { error: "Failed to save package", details: error.message },
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// ---------------- OPTIONS: preflight ----------------
+// ---------------- PATCH (Toggle Active/Inactive) ----------------
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, isActive } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID is required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const updated = await prisma.hajjPackage.update({
+      where: { id: parseInt(id) },
+      data: { isActive: Boolean(isActive) },
+    });
+
+    return NextResponse.json(updated, { headers: corsHeaders });
+  } catch (error: any) {
+    console.error("❌ PATCH /api/hajj error:", error.message);
+    return NextResponse.json(
+      { error: "Failed to toggle active", details: error.message },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+// ---------------- DELETE ----------------
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID is required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Pehle package find karo (Cloudinary ke liye)
+    const existing = await prisma.hajjPackage.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Package not found" },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Agar Cloudinary image hai to delete bhi karo
+    if (existing.publicId) {
+      try {
+        await cloudinary.uploader.destroy(existing.publicId);
+      } catch (err: any) {
+        console.error("❌ Cloudinary delete failed:", err.message);
+      }
+    }
+
+    // Database se delete karo
+    await prisma.hajjPackage.delete({
+      where: { id: parseInt(id) },
+    });
+
+    return NextResponse.json(
+      { message: "🗑️ Package deleted successfully" },
+      { status: 200, headers: corsHeaders }
+    );
+  } catch (error: any) {
+    console.error("❌ DELETE /api/hajj error:", error.message);
+    return NextResponse.json(
+      { error: "Failed to delete package", details: error.message },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
+// ---------------- OPTIONS (CORS Preflight) ----------------
 export async function OPTIONS() {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-  return new Response(null, { status: 204, headers });
+  return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }

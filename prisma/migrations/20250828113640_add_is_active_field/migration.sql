@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "public"."HajjPackage" ADD COLUMN     "isActive" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
