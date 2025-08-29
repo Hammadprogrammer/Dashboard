@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { Dialog, Transition } from "@headlessui/react";
 
 interface Package {
   id: number;
@@ -21,10 +22,33 @@ export default function HajjDashboardPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+
+  // ref for file input (to reset it later)
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ================= Popup Modal =================
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalType, setModalType] = useState<"success" | "error" | "warning">(
+    "success"
+  );
+
+  // ================= Delete Confirm Modal =================
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const showModal = (msg: string, type: "success" | "error" | "warning") => {
+    setModalMessage(msg);
+    setModalType(type);
+    setIsModalOpen(true);
+  };
 
   // ---------------- FETCH ----------------
   const fetchPackages = async () => {
     try {
+      setFetching(true);
       const res = await fetch("/api/hajj?all=true");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -32,6 +56,9 @@ export default function HajjDashboardPage() {
     } catch (err) {
       console.error("❌ Fetch Error:", err);
       setPackages([]);
+      showModal("⚠️ Error fetching packages", "error");
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -42,9 +69,9 @@ export default function HajjDashboardPage() {
   // ---------------- ADD / UPDATE ----------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return alert("⚠️ Enter package title");
-    if (!price || parseFloat(price) <= 0) return alert("⚠️ Enter valid price");
-    if (!category) return alert("⚠️ Select category");
+    if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
+    if (!price || parseFloat(price) <= 0)
+      return showModal("⚠️ Enter valid price", "warning");
 
     setLoading(true);
     try {
@@ -56,8 +83,6 @@ export default function HajjDashboardPage() {
       if (file) formData.append("file", file);
       formData.append("isActive", "true");
 
-      // ---------------- ONE PACKAGE PER CATEGORY ----------------
-      // Agar same category already exists aur new add ho raha hai, pehle delete karo
       const existing = packages.find((p) => p.category === category);
       if (existing && !id) {
         await fetch(`/api/hajj?id=${existing.id}`, { method: "DELETE" });
@@ -67,12 +92,12 @@ export default function HajjDashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      alert("✅ Package saved successfully!");
+      showModal("✅ Package saved successfully!", "success");
       resetForm();
       fetchPackages();
     } catch (err) {
       console.error("❌ Save Error:", err);
-      alert("⚠️ Error saving package");
+      showModal("⚠️ Error saving package", "error");
     } finally {
       setLoading(false);
     }
@@ -81,6 +106,7 @@ export default function HajjDashboardPage() {
   // ---------------- TOGGLE ACTIVE ----------------
   const toggleActive = async (pkg: Package) => {
     try {
+      setFetching(true);
       const res = await fetch("/api/hajj", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -88,28 +114,38 @@ export default function HajjDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle active");
+      showModal("✅ Status updated successfully!", "success");
       fetchPackages();
     } catch (err) {
       console.error("❌ Toggle Error:", err);
-      alert("⚠️ Could not update status");
+      showModal("⚠️ Could not update status", "error");
     }
   };
 
   // ---------------- DELETE ----------------
-  const deletePackage = async (pkgId: number) => {
-    if (!confirm("⚠️ Are you sure you want to delete this package?")) return;
+  const confirmDelete = (pkgId: number) => {
+    setDeleteId(pkgId);
+    setIsDeleteOpen(true);
+  };
 
+  const handleDelete = async () => {
+    if (!deleteId) return;
     try {
-      const res = await fetch(`/api/hajj?id=${pkgId}`, { method: "DELETE" });
+      setDeleting(true);
+      const res = await fetch(`/api/hajj?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
-        alert("🗑️ Package deleted successfully!");
+        showModal("🗑️ Package deleted successfully!", "success");
         fetchPackages();
-        return;
+      } else {
+        showModal("❌ Failed to delete package", "error");
       }
-      alert("❌ Failed to delete package");
     } catch (err) {
       console.error("❌ Delete Error:", err);
-      alert("⚠️ Could not delete package");
+      showModal("⚠️ Could not delete package", "error");
+    } finally {
+      setDeleting(false);
+      setIsDeleteOpen(false);
+      setDeleteId(null);
     }
   };
 
@@ -121,6 +157,9 @@ export default function HajjDashboardPage() {
     setCategory("Economic");
     setFile(null);
     setPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // reset file input field
+    }
   };
 
   return (
@@ -128,6 +167,13 @@ export default function HajjDashboardPage() {
       <h1 className="text-3xl font-bold mb-6 text-center">
         🕋 Hajj Packages Dashboard
       </h1>
+
+      {/* ================= LOADING SPINNER ================= */}
+      {fetching && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
+        </div>
+      )}
 
       {/* ================= FORM ================= */}
       <form
@@ -151,7 +197,7 @@ export default function HajjDashboardPage() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          disabled={!!id} // ✅ DISABLE DROPDOWN IF EDITING
+          disabled={!!id}
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
           }`}
@@ -165,6 +211,7 @@ export default function HajjDashboardPage() {
 
         <input
           type="file"
+          ref={fileInputRef}
           accept="image/*"
           onChange={(e) => {
             const selected = e.target.files?.[0] || null;
@@ -252,7 +299,7 @@ export default function HajjDashboardPage() {
                 </button>
 
                 <button
-                  onClick={() => deletePackage(pkg.id)}
+                  onClick={() => confirmDelete(pkg.id)}
                   className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
                 >
                   Delete
@@ -262,6 +309,82 @@ export default function HajjDashboardPage() {
           ))}
         </div>
       )}
+
+      {/* ================= MODAL POPUP ================= */}
+      <Transition appear show={isModalOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setIsModalOpen(false)}
+        >
+          <div className="fixed inset-0 bg-black/50" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+              <Dialog.Title
+                className={`text-lg font-bold ${
+                  modalType === "success"
+                    ? "text-green-600"
+                    : modalType === "error"
+                    ? "text-red-600"
+                    : "text-yellow-600"
+                }`}
+              >
+                {modalType === "success"
+                  ? "Success 🎉"
+                  : modalType === "error"
+                  ? "Error ❌"
+                  : "Warning ⚠️"}
+              </Dialog.Title>
+              <p className="mt-2">{modalMessage}</p>
+              <div className="mt-4">
+                <button
+                  className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  OK
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* ================= DELETE CONFIRM MODAL ================= */}
+      <Transition appear show={isDeleteOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => !deleting && setIsDeleteOpen(false)}
+        >
+          <div className="fixed inset-0 bg-black/50" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+              <Dialog.Title className="text-lg font-bold text-red-600">
+                Confirm Delete
+              </Dialog.Title>
+              <p className="mt-2">
+                Are you sure you want to delete this package?
+              </p>
+              <div className="mt-4 flex justify-center gap-4">
+                <button
+                  className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  onClick={() => setIsDeleteOpen(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
