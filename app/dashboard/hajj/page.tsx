@@ -24,17 +24,14 @@ export default function HajjDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  // ref for file input (to reset it later)
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ================= Popup Modal =================
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
     "success"
   );
 
-  // ================= Delete Confirm Modal =================
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -45,7 +42,6 @@ export default function HajjDashboardPage() {
     setIsModalOpen(true);
   };
 
-  // ---------------- FETCH ----------------
   const fetchPackages = async () => {
     try {
       setFetching(true);
@@ -61,17 +57,28 @@ export default function HajjDashboardPage() {
       setFetching(false);
     }
   };
+  
 
   useEffect(() => {
     fetchPackages();
   }, []);
 
-  // ---------------- ADD / UPDATE ----------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ Validation
     if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
+    if (/^\d+$/.test(title.trim()))
+      return showModal("⚠️ Title cannot be only numbers", "warning");
+
     if (!price || parseFloat(price) <= 0)
       return showModal("⚠️ Enter valid price", "warning");
+    if (!/^\d+(\.\d{1,2})?$/.test(price))
+      return showModal("⚠️ Price must be a valid number", "warning");
+
+    if (!category) return showModal("⚠️ Select category", "warning");
+    if (!id && !file)
+      return showModal("⚠️ Please upload an image", "warning");
 
     setLoading(true);
     try {
@@ -103,7 +110,6 @@ export default function HajjDashboardPage() {
     }
   };
 
-  // ---------------- TOGGLE ACTIVE ----------------
   const toggleActive = async (pkg: Package) => {
     try {
       setFetching(true);
@@ -122,7 +128,6 @@ export default function HajjDashboardPage() {
     }
   };
 
-  // ---------------- DELETE ----------------
   const confirmDelete = (pkgId: number) => {
     setDeleteId(pkgId);
     setIsDeleteOpen(true);
@@ -149,7 +154,6 @@ export default function HajjDashboardPage() {
     }
   };
 
-  // ---------------- RESET FORM ----------------
   const resetForm = () => {
     setId(null);
     setTitle("");
@@ -158,7 +162,7 @@ export default function HajjDashboardPage() {
     setFile(null);
     setPreview(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // reset file input field
+      fileInputRef.current.value = "";
     }
   };
 
@@ -168,14 +172,12 @@ export default function HajjDashboardPage() {
         🕋 Hajj Packages Dashboard
       </h1>
 
-      {/* ================= LOADING SPINNER ================= */}
       {fetching && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
       )}
 
-      {/* ================= FORM ================= */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
@@ -184,16 +186,24 @@ export default function HajjDashboardPage() {
           type="text"
           placeholder="Package Title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setTitle(val);
+          }}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
+
         <input
-          type="number"
+          type="text"
           placeholder="Price"
           value={price}
-          onChange={(e) => setPrice(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
+          }}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
+
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
@@ -252,7 +262,7 @@ export default function HajjDashboardPage() {
         </div>
       </form>
 
-      {/* ================= LIST ================= */}
+      {/* LIST */}
       {packages.length === 0 ? (
         <p className="text-center text-gray-500">No packages available yet.</p>
       ) : (
@@ -310,7 +320,7 @@ export default function HajjDashboardPage() {
         </div>
       )}
 
-      {/* ================= MODAL POPUP ================= */}
+      {/* MODALS same as before (no change) */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -349,7 +359,6 @@ export default function HajjDashboardPage() {
         </Dialog>
       </Transition>
 
-      {/* ================= DELETE CONFIRM MODAL ================= */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"
