@@ -57,6 +57,7 @@ export default function HajjDashboardPage() {
       setFetching(false);
     }
   };
+  
 
   useEffect(() => {
     fetchPackages();
