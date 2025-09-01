@@ -58,42 +58,57 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ Cloudinary Upload
-    if (file) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+    // ✅ Cloudinary Upload Helper
+    async function uploadToCloudinary(file: File) {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
 
-        const uploadRes: any = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "hajj-packages",
-              width: 400,
-              height: 600,
-              crop: "fill",
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          stream.end(buffer);
-        });
-
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
-      } catch (err: any) {
-        console.error("❌ Cloudinary upload failed:", err.message);
-        return NextResponse.json(
-          { error: "Image upload failed", details: err.message },
-          { status: 500, headers: corsHeaders }
+      return new Promise<any>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "hajj-packages",
+            width: 400,
+            height: 600,
+            crop: "fill",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
         );
-      }
+        stream.end(buffer);
+      });
     }
 
     let saved;
     if (id) {
       // ✅ Update existing package
+      const existing = await prisma.hajjPackage.findUnique({
+        where: { id: parseInt(id) },
+      });
+
+      if (!existing) {
+        return NextResponse.json(
+          { error: "Package not found" },
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      // Agar new file di hai to pehle purani delete + nayi upload
+      if (file) {
+        if (existing.publicId) {
+          try {
+            await cloudinary.uploader.destroy(existing.publicId);
+          } catch (err: any) {
+            console.error("❌ Old image delete failed:", err.message);
+          }
+        }
+
+        const uploadRes = await uploadToCloudinary(file);
+        imageUrl = uploadRes.secure_url;
+        publicId = uploadRes.public_id;
+      }
+
       saved = await prisma.hajjPackage.update({
         where: { id: parseInt(id) },
         data: {
@@ -106,6 +121,12 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // ✅ Create new package
+      if (file) {
+        const uploadRes = await uploadToCloudinary(file);
+        imageUrl = uploadRes.secure_url;
+        publicId = uploadRes.public_id;
+      }
+
       saved = await prisma.hajjPackage.create({
         data: {
           title,

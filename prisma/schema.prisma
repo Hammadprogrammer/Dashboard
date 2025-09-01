@@ -64,7 +64,7 @@ model UmrahPackage {
   imageUrl  String
   publicId  String
   isActive  Boolean  @default(true)
-  category  String   @default("economic") // ✅ default lowercase
+  category  String   @default("economic")
   createdAt DateTime @default(now())
 }
 

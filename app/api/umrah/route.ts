@@ -12,9 +12,9 @@ const corsHeaders = {
 // ---------------- GET ----------------
 export async function GET() {
   try {
-    const packages = await prisma.umrahPackage.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+   const packages = await prisma.umrahPackage.findMany({
+  orderBy: { createdAt: "desc" },
+});
 
     return NextResponse.json(packages, { headers: corsHeaders });
   } catch (error: any) {
@@ -59,7 +59,23 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ Cloudinary Upload
+    // ✅ Agar update ho raha hai aur file upload ki gayi hai → purani image delete karo
+    if (id && file) {
+      const existing = await prisma.umrahPackage.findUnique({
+        where: { id: parseInt(id) },
+      });
+
+      if (existing?.publicId) {
+        try {
+          await cloudinary.uploader.destroy(existing.publicId);
+          console.log("🗑️ Old image deleted from Cloudinary:", existing.publicId);
+        } catch (err: any) {
+          console.error("❌ Failed to delete old image from Cloudinary:", err.message);
+        }
+      }
+    }
+
+    // ✅ Cloudinary Upload (only if new file is given)
     if (file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -182,10 +198,11 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Agar Cloudinary image hai to delete bhi karo
+    // ✅ Agar Cloudinary image hai to delete bhi karo
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
+        console.log("🗑️ Image deleted from Cloudinary:", existing.publicId);
       } catch (err: any) {
         console.error("❌ Cloudinary delete failed:", err.message);
       }
