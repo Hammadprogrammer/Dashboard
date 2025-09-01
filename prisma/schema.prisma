@@ -53,9 +53,21 @@ model HajjPackage {
   imageUrl  String
   publicId  String
   isActive  Boolean  @default(true)
-  category  String   @default("Economic") // default added
+  category  String   @default("economic") 
   createdAt DateTime @default(now())
 }
+
+model UmrahPackage {
+  id        Int      @id @default(autoincrement())
+  title     String
+  price     Float
+  imageUrl  String
+  publicId  String
+  isActive  Boolean  @default(true)
+  category  String   @default("economic") // ✅ default lowercase
+  createdAt DateTime @default(now())
+}
+
 
 
 
