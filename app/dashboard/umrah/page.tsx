@@ -17,7 +17,7 @@ export default function UmrahDashboardPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [id, setId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(""); // Keep as string for controlled input
   const [category, setCategory] = useState<Package["category"]>("Economic");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);

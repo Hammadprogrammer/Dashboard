@@ -79,6 +79,25 @@ model DomesticPackage {
   createdAt DateTime @default(now())
 }
 
+model InternationalTour {
+  id            Int            @id @default(autoincrement())
+  title         String
+  description   String
+  isActive      Boolean        @default(true)
+  backgroundUrl String?
+  backgroundId  String?
+  createdAt     DateTime       @default(now())
+  sliderImages  SliderImage[]
+}
+
+model SliderImage {
+  id       Int    @id @default(autoincrement())
+  url      String
+  publicId String
+  tourId   Int
+  tour     InternationalTour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+}
+
 
 
 
