@@ -17,12 +17,13 @@ export default function UmrahDashboardPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [id, setId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState(""); // Keep as string for controlled input
+  const [price, setPrice] = useState("");
   const [category, setCategory] = useState<Package["category"]>("Economic");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
+
+  // ✅ New, centralized state for all async operations
+  const [isProcessing, setIsProcessing] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -34,7 +35,6 @@ export default function UmrahDashboardPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
@@ -44,7 +44,7 @@ export default function UmrahDashboardPage() {
 
   const fetchPackages = async () => {
     try {
-      setFetching(true);
+      setIsProcessing(true); // <-- Start loader
       const res = await fetch("/api/umrah?all=true");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -54,7 +54,7 @@ export default function UmrahDashboardPage() {
       setPackages([]);
       showModal("⚠️ Error fetching packages", "error");
     } finally {
-      setFetching(false);
+      setIsProcessing(false); // <-- Stop loader
     }
   };
 
@@ -65,20 +65,18 @@ export default function UmrahDashboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ✅ Validation
     if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
     if (/^\d+$/.test(title.trim()))
       return showModal("⚠️ Title cannot be only numbers", "warning");
-
     if (!price || parseFloat(price) <= 0)
       return showModal("⚠️ Enter valid price", "warning");
     if (!/^\d+(\.\d{1,2})?$/.test(price))
       return showModal("⚠️ Price must be a valid number", "warning");
-
     if (!category) return showModal("⚠️ Select category", "warning");
-    if (!id && !file)
-      return showModal("⚠️ Please upload an image", "warning");
+    if (!id && !file) return showModal("⚠️ Please upload an image", "warning");
 
-    setLoading(true);
+    setIsProcessing(true); // <-- Start loader
     try {
       const formData = new FormData();
       if (id) formData.append("id", id);
@@ -87,11 +85,6 @@ export default function UmrahDashboardPage() {
       formData.append("category", category);
       if (file) formData.append("file", file);
       formData.append("isActive", "true");
-
-      const existing = packages.find((p) => p.category === category);
-      if (existing && !id) {
-        await fetch(`/api/umrah?id=${existing.id}`, { method: "DELETE" });
-      }
 
       const res = await fetch("/api/umrah", { method: "POST", body: formData });
       const data = await res.json();
@@ -104,13 +97,13 @@ export default function UmrahDashboardPage() {
       console.error("❌ Save Error:", err);
       showModal("⚠️ Error saving package", "error");
     } finally {
-      setLoading(false);
+      setIsProcessing(false); // <-- Stop loader
     }
   };
 
   const toggleActive = async (pkg: Package) => {
+    setIsProcessing(true); // <-- Start loader
     try {
-      setFetching(true);
       const res = await fetch("/api/umrah", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -123,6 +116,8 @@ export default function UmrahDashboardPage() {
     } catch (err) {
       console.error("❌ Toggle Error:", err);
       showModal("⚠️ Could not update status", "error");
+    } finally {
+      setIsProcessing(false); // <-- Stop loader
     }
   };
 
@@ -133,8 +128,9 @@ export default function UmrahDashboardPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    setIsProcessing(true); // <-- Start loader
     try {
-      setDeleting(true);
       const res = await fetch(`/api/umrah?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
         showModal("🗑️ Package deleted successfully!", "success");
@@ -146,7 +142,7 @@ export default function UmrahDashboardPage() {
       console.error("❌ Delete Error:", err);
       showModal("⚠️ Could not delete package", "error");
     } finally {
-      setDeleting(false);
+      setIsProcessing(false); // <-- Stop loader
       setIsDeleteOpen(false);
       setDeleteId(null);
     }
@@ -171,7 +167,7 @@ export default function UmrahDashboardPage() {
       </h1>
 
       {/* --- LOADER --- */}
-      {fetching && (
+      {isProcessing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
@@ -204,7 +200,7 @@ export default function UmrahDashboardPage() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          disabled={!!id}
+          disabled={!!id || isProcessing}
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
           }`}
@@ -225,6 +221,7 @@ export default function UmrahDashboardPage() {
             setFile(selected);
             setPreview(selected ? URL.createObjectURL(selected) : null);
           }}
+          disabled={isProcessing}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
         />
 
@@ -242,16 +239,17 @@ export default function UmrahDashboardPage() {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={isProcessing}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
-            {loading ? "Uploading..." : id ? "Update Package" : "Save Package"}
+            {isProcessing ? "Processing..." : id ? "Update Package" : "Save Package"}
           </button>
           {id && (
             <button
               type="button"
               onClick={resetForm}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+              disabled={isProcessing}
+              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -260,7 +258,7 @@ export default function UmrahDashboardPage() {
       </form>
 
       {/* --- LIST --- */}
-      {!fetching && packages.length === 0 ? (
+      {!isProcessing && packages.length === 0 ? (
         <p className="text-center text-gray-500">No packages available.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -283,7 +281,8 @@ export default function UmrahDashboardPage() {
               <div className="flex justify-between gap-2 mt-auto">
                 <button
                   onClick={() => toggleActive(pkg)}
-                  className={`px-4 py-1 rounded ${
+                  disabled={isProcessing}
+                  className={`px-4 py-1 rounded disabled:opacity-50 ${
                     pkg.isActive
                       ? "bg-green-500 hover:bg-green-600"
                       : "bg-red-500 hover:bg-red-600"
@@ -300,14 +299,16 @@ export default function UmrahDashboardPage() {
                     setCategory(pkg.category);
                     setPreview(pkg.imageUrl);
                   }}
-                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
+                  disabled={isProcessing}
+                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
                 >
                   Edit
                 </button>
 
                 <button
                   onClick={() => confirmDelete(pkg.id)}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
+                  disabled={isProcessing}
+                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                 >
                   Delete
                 </button>
@@ -317,7 +318,7 @@ export default function UmrahDashboardPage() {
         </div>
       )}
 
-      {/* --- MODALS (same as before) --- */}
+      {/* --- MODALS --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -360,7 +361,7 @@ export default function UmrahDashboardPage() {
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => !deleting && setIsDeleteOpen(false)}
+          onClose={() => !isProcessing && setIsDeleteOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -375,16 +376,16 @@ export default function UmrahDashboardPage() {
                 <button
                   className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
                   onClick={() => setIsDeleteOpen(false)}
-                  disabled={deleting}
+                  disabled={isProcessing}
                 >
                   Cancel
                 </button>
                 <button
                   className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={isProcessing}
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  {isProcessing ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </Dialog.Panel>

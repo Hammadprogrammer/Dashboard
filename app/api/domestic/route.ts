@@ -56,10 +56,33 @@ export async function POST(req: NextRequest) {
     const isActive = isActiveStr === "true";
     const normalizedCategory = category.toLowerCase();
 
+    // 🆕 New Logic: If creating a new package, check for and delete an existing one with the same category.
+    if (!id) {
+      const existingPackage = await prisma.domesticPackage.findFirst({
+        where: { category: normalizedCategory },
+      });
+
+      if (existingPackage) {
+        console.log(`⚠️ Existing package found for category '${normalizedCategory}'. Deleting old one.`);
+        if (existingPackage.publicId) {
+          try {
+            await cloudinary.uploader.destroy(existingPackage.publicId);
+            console.log("🗑️ Old image deleted from Cloudinary:", existingPackage.publicId);
+          } catch (err: any) {
+            console.error("❌ Failed to delete old image from Cloudinary:", err.message);
+          }
+        }
+        await prisma.domesticPackage.delete({
+          where: { id: existingPackage.id },
+        });
+        console.log("🗑️ Old package deleted from database:", existingPackage.id);
+      }
+    }
+
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ Agar update ho raha hai aur file upload ki gayi hai → purani image delete karo
+    // ✅ If it's an update and a new file is uploaded, delete the old one.
     if (id && file) {
       const existing = await prisma.domesticPackage.findUnique({
         where: { id: parseInt(id) },

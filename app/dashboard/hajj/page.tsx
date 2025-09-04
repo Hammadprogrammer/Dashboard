@@ -21,8 +21,9 @@ export default function HajjDashboardPage() {
   const [category, setCategory] = useState<Package["category"]>("Economic");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
+  
+  // ✅ Renamed from fetching to isProcessing for broader use
+  const [isProcessing, setIsProcessing] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -34,7 +35,7 @@ export default function HajjDashboardPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [deleting, setDeleting] = useState(false); // This can be removed, as isProcessing now covers it
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
@@ -44,7 +45,7 @@ export default function HajjDashboardPage() {
 
   const fetchPackages = async () => {
     try {
-      setFetching(true);
+      setIsProcessing(true); // <--- Start loader for fetching
       const res = await fetch("/api/hajj?all=true");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -54,10 +55,9 @@ export default function HajjDashboardPage() {
       setPackages([]);
       showModal("⚠️ Error fetching packages", "error");
     } finally {
-      setFetching(false);
+      setIsProcessing(false); // <--- Stop loader
     }
   };
-  
 
   useEffect(() => {
     fetchPackages();
@@ -80,7 +80,7 @@ export default function HajjDashboardPage() {
     if (!id && !file)
       return showModal("⚠️ Please upload an image", "warning");
 
-    setLoading(true);
+    setIsProcessing(true); // <--- Start loader
     try {
       const formData = new FormData();
       if (id) formData.append("id", id);
@@ -106,13 +106,13 @@ export default function HajjDashboardPage() {
       console.error("❌ Save Error:", err);
       showModal("⚠️ Error saving package", "error");
     } finally {
-      setLoading(false);
+      setIsProcessing(false); // <--- Stop loader
     }
   };
 
   const toggleActive = async (pkg: Package) => {
+    setIsProcessing(true); // <--- Start loader
     try {
-      setFetching(true);
       const res = await fetch("/api/hajj", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -125,6 +125,8 @@ export default function HajjDashboardPage() {
     } catch (err) {
       console.error("❌ Toggle Error:", err);
       showModal("⚠️ Could not update status", "error");
+    } finally {
+      setIsProcessing(false); // <--- Stop loader
     }
   };
 
@@ -135,8 +137,8 @@ export default function HajjDashboardPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    setIsProcessing(true); // <--- Start loader
     try {
-      setDeleting(true);
       const res = await fetch(`/api/hajj?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
         showModal("🗑️ Package deleted successfully!", "success");
@@ -148,7 +150,7 @@ export default function HajjDashboardPage() {
       console.error("❌ Delete Error:", err);
       showModal("⚠️ Could not delete package", "error");
     } finally {
-      setDeleting(false);
+      setIsProcessing(false); // <--- Stop loader
       setIsDeleteOpen(false);
       setDeleteId(null);
     }
@@ -172,7 +174,7 @@ export default function HajjDashboardPage() {
         🕋 Hajj Packages Dashboard
       </h1>
 
-      {fetching && (
+      {isProcessing && ( // <-- Use isProcessing to show/hide the loader
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
@@ -199,7 +201,7 @@ export default function HajjDashboardPage() {
           value={price}
           onChange={(e) => {
             const val = e.target.value;
-            if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
+            if (/^\d*(\.\d{1,2})?$/.test(val)) setPrice(val);
           }}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
@@ -245,10 +247,10 @@ export default function HajjDashboardPage() {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={isProcessing}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
-            {loading ? "Uploading..." : id ? "Update Package" : "Save Package"}
+            {isProcessing ? "Uploading..." : id ? "Update Package" : "Save Package"}
           </button>
           {id && (
             <button
@@ -263,7 +265,7 @@ export default function HajjDashboardPage() {
       </form>
 
       {/* LIST */}
-      {packages.length === 0 ? (
+      {packages.length === 0 && !isProcessing ? (
         <p className="text-center text-gray-500">No packages available yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -286,6 +288,7 @@ export default function HajjDashboardPage() {
               <div className="flex justify-between gap-2 mt-auto">
                 <button
                   onClick={() => toggleActive(pkg)}
+                  disabled={isProcessing}
                   className={`px-4 py-1 rounded ${
                     pkg.isActive
                       ? "bg-green-500 hover:bg-green-600"
@@ -303,6 +306,7 @@ export default function HajjDashboardPage() {
                     setCategory(pkg.category);
                     setPreview(pkg.imageUrl);
                   }}
+                  disabled={isProcessing}
                   className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
                 >
                   Edit
@@ -310,6 +314,7 @@ export default function HajjDashboardPage() {
 
                 <button
                   onClick={() => confirmDelete(pkg.id)}
+                  disabled={isProcessing}
                   className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
                 >
                   Delete
@@ -320,7 +325,7 @@ export default function HajjDashboardPage() {
         </div>
       )}
 
-      {/* MODALS same as before (no change) */}
+      {/* MODALS */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -363,7 +368,7 @@ export default function HajjDashboardPage() {
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => !deleting && setIsDeleteOpen(false)}
+          onClose={() => !isProcessing && setIsDeleteOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -378,16 +383,16 @@ export default function HajjDashboardPage() {
                 <button
                   className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
                   onClick={() => setIsDeleteOpen(false)}
-                  disabled={deleting}
+                  disabled={isProcessing}
                 >
                   Cancel
                 </button>
                 <button
                   className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={isProcessing}
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  {isProcessing ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </Dialog.Panel>

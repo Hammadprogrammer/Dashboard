@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 
 interface SliderImage {
@@ -27,8 +27,10 @@ export default function InternationalTourDashboard() {
   const [sliderFiles, setSliderFiles] = useState<File[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
+
+  // --- Loading States ---
+  const [loading, setLoading] = useState(false); 
+  const [fetching, setFetching] = useState(true); 
 
   // Use keys to force re-render and clear file inputs
   const [backgroundKey, setBackgroundKey] = useState(0);
@@ -43,7 +45,9 @@ export default function InternationalTourDashboard() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState(false);
+
+  // --- useRef for form scrolling ---
+  const formRef = useRef<HTMLFormElement>(null);
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
@@ -68,7 +72,7 @@ export default function InternationalTourDashboard() {
   };
 
   useEffect(() => {
-    fetchTours();
+      fetchTours();
   }, []);
 
   // ✅ Reset form
@@ -80,7 +84,6 @@ export default function InternationalTourDashboard() {
     setSliderFiles([]);
     setIsActive(true);
     setEditingId(null);
-    // Increment keys to force re-render and clear file inputs
     setBackgroundKey(prev => prev + 1);
     setSliderKey(prev => prev + 1);
   };
@@ -88,21 +91,21 @@ export default function InternationalTourDashboard() {
   // ✅ Save or Update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true); // 👈 Set loading to true at the very beginning
+    setLoading(true);
 
     if (!title.trim() || !description.trim()) {
-      setLoading(false); // 👈 Set loading to false if validation fails
+      setLoading(false);
       return showModal("⚠️ Title and Description are required", "warning");
     }
     
     // Validation for new tour
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
-            setLoading(false); // 👈 Set loading to false if validation fails
+            setLoading(false);
             return showModal("⚠️ Please upload a background image for a new tour", "warning");
         }
         if (imageType === "slider" && sliderFiles.length === 0) {
-            setLoading(false); // 👈 Set loading to false if validation fails
+            setLoading(false);
             return showModal("⚠️ Please upload at least one slider image for a new tour", "warning");
         }
     }
@@ -129,7 +132,6 @@ export default function InternationalTourDashboard() {
     if (!editingId && imageType === "background" && backgroundFile) {
         const existingBackgroundTour = tours.find(t => t.backgroundUrl);
         if (existingBackgroundTour) {
-            // Delete the old tour with the background image
             await fetch(`/api/international-tour?id=${existingBackgroundTour.id}`, { method: "DELETE" });
         }
     }
@@ -167,13 +169,16 @@ export default function InternationalTourDashboard() {
     // Clear file inputs for new selection
     setBackgroundFile(null); 
     setSliderFiles([]);
+
+    // Scroll to the form
+    formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // ✅ Delete
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      setDeleting(true);
+      setLoading(true);
       const res = await fetch(`/api/international-tour?id=${deleteId}`, {
         method: "DELETE",
       });
@@ -185,7 +190,7 @@ export default function InternationalTourDashboard() {
       console.error("❌ Delete error:", err);
       showModal("❌ Failed to delete tour", "error");
     } finally {
-      setDeleting(false);
+      setLoading(false);
       setIsDeleteOpen(false);
     }
   };
@@ -193,6 +198,7 @@ export default function InternationalTourDashboard() {
   // ✅ Toggle active/inactive
   const toggleActive = async (id: number, current: boolean) => {
     try {
+      setLoading(true);
       const res = await fetch("/api/international-tour", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -204,6 +210,8 @@ export default function InternationalTourDashboard() {
     } catch (err) {
       console.error("❌ Toggle error:", err);
       showModal("⚠️ Could not update status", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,8 +223,8 @@ export default function InternationalTourDashboard() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-center">🌍 International Tours</h1>
 
-      {/* --- LOADER --- */}
-      {fetching && (
+      {/* --- GLOBAL LOADER --- */}
+      {(loading || fetching) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
@@ -226,6 +234,7 @@ export default function InternationalTourDashboard() {
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
+        ref={formRef}
       >
         <input
           type="text"
@@ -233,6 +242,7 @@ export default function InternationalTourDashboard() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          disabled={loading}
         />
 
         <textarea
@@ -241,6 +251,7 @@ export default function InternationalTourDashboard() {
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none"
+          disabled={loading}
         />
 
         {/* This select is now disabled if editing */}
@@ -248,7 +259,7 @@ export default function InternationalTourDashboard() {
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "slider")}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
-          disabled={!!editingId || loading} // 👈 Disable the select when editing or loading
+          disabled={!!editingId || loading}
         >
           <option value="background">Background Image</option>
           <option value="slider">Slider Images</option>
@@ -261,7 +272,7 @@ export default function InternationalTourDashboard() {
             onChange={(e) => setBackgroundFile(e.target.files?.[0] || null)}
             className="border border-gray-700 p-2 w-full rounded bg-black text-white"
             key={backgroundKey} 
-            disabled={loading} // 👈 Disable input when loading
+            disabled={loading}
           />
         )}
 
@@ -275,7 +286,7 @@ export default function InternationalTourDashboard() {
             }
             className="border border-gray-700 p-2 w-full rounded bg-black text-white"
             key={sliderKey}
-            disabled={loading} // 👈 Disable input when loading
+            disabled={loading}
           />
         )}
 
@@ -292,7 +303,7 @@ export default function InternationalTourDashboard() {
               type="button"
               onClick={resetForm}
               className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
-              disabled={loading} // 👈 Disable cancel when loading
+              disabled={loading}
             >
               Cancel
             </button>
@@ -302,7 +313,7 @@ export default function InternationalTourDashboard() {
 
       {/* --- LIST --- */}
       {!fetching && tours.length === 0 ? (
-        <p className="text-center text-gray-500">No tours available.</p>
+        <p className="text-center text-gray-500">No international packages available.</p>
       ) : (
         <>
           {backgroundTours.length > 0 && (
@@ -325,6 +336,7 @@ export default function InternationalTourDashboard() {
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
+                        disabled={loading}
                       >
                         Edit
                       </button>
@@ -334,6 +346,7 @@ export default function InternationalTourDashboard() {
                           setIsDeleteOpen(true);
                         }}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
+                        disabled={loading}
                       >
                         Delete
                       </button>
@@ -344,6 +357,7 @@ export default function InternationalTourDashboard() {
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
+                        disabled={loading}
                       >
                         {tour.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
@@ -379,6 +393,7 @@ export default function InternationalTourDashboard() {
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
+                        disabled={loading}
                       >
                         Edit
                       </button>
@@ -388,6 +403,7 @@ export default function InternationalTourDashboard() {
                           setIsDeleteOpen(true);
                         }}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
+                        disabled={loading}
                       >
                         Delete
                       </button>
@@ -398,6 +414,7 @@ export default function InternationalTourDashboard() {
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
+                        disabled={loading}
                       >
                         {tour.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
@@ -415,7 +432,7 @@ export default function InternationalTourDashboard() {
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => !loading && setIsModalOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -440,6 +457,7 @@ export default function InternationalTourDashboard() {
                 <button
                   className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={loading}
                 >
                   OK
                 </button>
@@ -453,7 +471,7 @@ export default function InternationalTourDashboard() {
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => !deleting && setIsDeleteOpen(false)}
+          onClose={() => !loading && setIsDeleteOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -466,16 +484,16 @@ export default function InternationalTourDashboard() {
                 <button
                   className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
                   onClick={() => setIsDeleteOpen(false)}
-                  disabled={deleting}
+                  disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
                   className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={loading}
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  {loading ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </Dialog.Panel>
