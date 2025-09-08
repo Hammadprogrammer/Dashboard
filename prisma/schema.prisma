@@ -98,6 +98,18 @@ model SliderImage {
   tour     InternationalTour @relation(fields: [tourId], references: [id], onDelete: Cascade)
 }
 
+// prisma/schema.prisma
+
+model WhyChooseUsItem {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String
+  publicId    String   @unique
+  isActive    Boolean  @default(true) // ✅ This is the new field
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 
 
 
