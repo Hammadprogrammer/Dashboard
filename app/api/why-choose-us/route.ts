@@ -1,5 +1,5 @@
 // app/api/why-choose-us/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
 
@@ -12,6 +12,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// ✅ Common CORS headers for all responses
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 // Helper function to delete image from Cloudinary
 const deleteImage = async (publicId: string) => {
   if (publicId) {
@@ -19,24 +26,24 @@ const deleteImage = async (publicId: string) => {
   }
 };
 
-// GET Request: Fetch all items
+// ---------------- GET Request: Fetch all items ----------------
 export async function GET() {
   try {
     const items = await prisma.whyChooseUsItem.findMany({
       orderBy: { createdAt: "asc" },
     });
-    return NextResponse.json(items, { status: 200 });
+    return NextResponse.json(items, { status: 200, headers: corsHeaders });
   } catch (error) {
     console.error("Failed to fetch Why Choose Us items:", error);
     return NextResponse.json(
       { error: "Failed to fetch items" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// POST Request: Create or update an item
-export async function POST(request: Request) {
+// ---------------- POST Request: Create or update an item ----------------
+export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const id = formData.get("id") as string | null;
@@ -48,7 +55,7 @@ export async function POST(request: Request) {
     if (!title || !description) {
       return NextResponse.json(
         { error: "Title and description are required" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -92,13 +99,13 @@ export async function POST(request: Request) {
         data: dataToUpdate,
       });
 
-      return NextResponse.json(updatedItem, { status: 200 });
+      return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
     } else {
       // Create new item
       if (!imageUrl || !publicId) {
         return NextResponse.json(
           { error: "Image file is required for new item" },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
       }
       const newItem = await prisma.whyChooseUsItem.create({
@@ -107,20 +114,20 @@ export async function POST(request: Request) {
           description,
           imageUrl,
           publicId,
-          isActive: true, // ✅ New items are active by default
+          isActive: true, 
         },
       });
 
-      return NextResponse.json(newItem, { status: 201 });
+      return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
     }
   } catch (error) {
     console.error("Failed to save Why Choose Us item:", error);
-    return NextResponse.json({ error: "Failed to save item" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save item" }, { status: 500, headers: corsHeaders });
   }
 }
 
-// DELETE Request: Delete an item
-export async function DELETE(request: Request) {
+// ---------------- DELETE Request: Delete an item ----------------
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -128,7 +135,7 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: "ID is required" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -138,7 +145,7 @@ export async function DELETE(request: Request) {
     });
 
     if (!itemToDelete) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      return NextResponse.json({ error: "Item not found" }, { status: 404, headers: corsHeaders });
     }
 
     // Delete image from Cloudinary
@@ -149,25 +156,25 @@ export async function DELETE(request: Request) {
       where: { id: parseInt(id) },
     });
 
-    return NextResponse.json({ message: "Item deleted successfully" }, { status: 200 });
+    return NextResponse.json({ message: "Item deleted successfully" }, { status: 200, headers: corsHeaders });
   } catch (error) {
     console.error("Failed to delete Why Choose Us item:", error);
     return NextResponse.json(
       { error: "Failed to delete item" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// ✅ PATCH Request: Toggle active status
-export async function PATCH(request: Request) {
+// ---------------- PATCH Request: Toggle active status ----------------
+export async function PATCH(request: NextRequest) {
   try {
     const { id, isActive } = await request.json();
 
     if (typeof id !== 'number' || typeof isActive !== 'boolean') {
       return NextResponse.json(
         { error: "Invalid request body" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -176,10 +183,14 @@ export async function PATCH(request: Request) {
       data: { isActive },
     });
 
-    return NextResponse.json(updatedItem, { status: 200 });
+    return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
   } catch (error) {
     console.error("Failed to toggle active status:", error);
-    return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update status" }, { status: 500, headers: corsHeaders });
   }
 }
 
+// ✅ OPTIONS Request: Handle CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200, headers: corsHeaders });
+}
