@@ -235,5 +235,5 @@ export async function DELETE(req: NextRequest) {
 
 // ---------------- OPTIONS ----------------
 export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200, headers: corsHeaders });
+  return NextResponse.json({}, { status: 200, headers: corsHeaders }) ;
 }
