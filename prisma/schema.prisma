@@ -143,5 +143,14 @@ model CustomPilgrimage {
   createdAt   DateTime      @default(now())
 }
 
-
+model Testimonial {
+  id          Int      @id @default(autoincrement())
+  rating      Float
+  description String   @db.Text
+  image       String
+  imageId     String
+  name        String
+  title       String
+  createdAt   DateTime @default(now())
+}
 
