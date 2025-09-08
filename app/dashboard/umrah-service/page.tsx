@@ -22,7 +22,7 @@ export default function UmrahServiceDashboard() {
   const [services, setServices] = useState<UmrahService[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [imageType, setImageType] = useState<"hero" | "gallery">("hero");
+  const [imageType, setImageType] = useState<"background" | "services">("background");
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -79,7 +79,7 @@ export default function UmrahServiceDashboard() {
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setImageType("hero");
+    setImageType("background");
     setHeroFile(null);
     setGalleryFiles([]);
     setIsActive(true);
@@ -100,13 +100,13 @@ export default function UmrahServiceDashboard() {
     
     // Validation for new service
     if (!editingId) {
-        if (imageType === "hero" && !heroFile) {
+        if (imageType === "background" && !heroFile) {
             setLoading(false);
-            return showModal("⚠️ Please upload a hero image for a new service", "warning");
+            return showModal("⚠️ Please upload a background image for a new service", "warning");
         }
-        if (imageType === "gallery" && galleryFiles.length === 0) {
+        if (imageType === "services" && galleryFiles.length === 0) {
             setLoading(false);
-            return showModal("⚠️ Please upload at least one gallery image for a new service", "warning");
+            return showModal("⚠️ Please upload at least one service image for a new service", "warning");
         }
     }
 
@@ -121,10 +121,10 @@ export default function UmrahServiceDashboard() {
     }
     
     // Append files based on imageType
-    if (imageType === "hero" && heroFile) {
+    if (imageType === "background" && heroFile) {
       formData.append("heroImage", heroFile);
     }
-    if (imageType === "gallery" && galleryFiles.length > 0) {
+    if (imageType === "services" && galleryFiles.length > 0) {
       galleryFiles.forEach((file) => formData.append("serviceImages", file));
     }
     
@@ -154,9 +154,9 @@ export default function UmrahServiceDashboard() {
     setDescription(service.description);
     setIsActive(service.isActive);
     if (service.heroImage) {
-      setImageType("hero");
+      setImageType("background");
     } else if (service.serviceImages.length > 0) {
-      setImageType("gallery");
+      setImageType("services");
     }
     // Clear file inputs for new selection
     setHeroFile(null); 
@@ -246,18 +246,17 @@ export default function UmrahServiceDashboard() {
           disabled={loading}
         />
 
-        {/* This select is now disabled if editing */}
         <select
           value={imageType}
-          onChange={(e) => setImageType(e.target.value as "hero" | "gallery")}
+          onChange={(e) => setImageType(e.target.value as "background" | "services")}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
           disabled={!!editingId || loading}
         >
-          <option value="hero">Hero Image</option>
-          <option value="gallery">Gallery Images</option>
+          <option value="background">Background Image</option>
+          <option value="services">Service Images</option>
         </select>
 
-        {imageType === "hero" && (
+        {imageType === "background" && (
           <input
             type="file"
             accept="image/*"
@@ -268,7 +267,7 @@ export default function UmrahServiceDashboard() {
           />
         )}
 
-        {imageType === "gallery" && (
+        {imageType === "services" && (
           <input
             type="file"
             accept="image/*"
@@ -310,7 +309,7 @@ export default function UmrahServiceDashboard() {
         <>
           {heroServices.length > 0 && (
             <div className="mb-10">
-              <h1 className="text-2xl font-bold mb-4 text-center">Backgound Image</h1>
+              <h1 className="text-2xl font-bold mb-4 text-center">Background Image</h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {heroServices.map((service) => (
                   <div
@@ -362,7 +361,7 @@ export default function UmrahServiceDashboard() {
 
           {galleryServices.length > 0 && (
             <div>
-              <h1 className="text-2xl font-bold mb-4 text-center">Services </h1>
+              <h1 className="text-2xl font-bold mb-4 text-center">Service Images</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {galleryServices.map((service) => (
                   <div
