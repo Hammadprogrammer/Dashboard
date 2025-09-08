@@ -182,3 +182,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
   }
 }
+
+// ---------------- OPTIONS (CORS Preflight) ----------------
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200, headers: corsHeaders });
+}
