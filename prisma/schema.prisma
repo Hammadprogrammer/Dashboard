@@ -130,5 +130,18 @@ model ServiceImage {
   service   UmrahService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
 
+model CustomPilgrimage {
+  id          Int           @id @default(autoincrement())
+  title       String
+  subtitle1   String?
+  subtitle2   String?
+  subtitle3   String?
+  subtitle4   String?
+  isActive    Boolean       @default(true)
+  heroImage   String?       // The main background image
+  heroImageId String?
+  createdAt   DateTime      @default(now())
+}
+
 
 
