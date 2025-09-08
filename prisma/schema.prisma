@@ -111,7 +111,24 @@ model WhyChooseUsItem {
   updatedAt   DateTime @updatedAt
 }
 
+model UmrahService {
+  id          Int           @id @default(autoincrement())
+  title       String
+  description String
+  isActive    Boolean       @default(true)
+  heroImage   String?       // We'll use this for a main, single image
+  heroImageId String?
+  createdAt   DateTime      @default(now())
+  serviceImages ServiceImage[]
+}
 
+model ServiceImage {
+  id        Int          @id @default(autoincrement())
+  url       String
+  publicId  String
+  serviceId Int
+  service   UmrahService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
 
 
 
