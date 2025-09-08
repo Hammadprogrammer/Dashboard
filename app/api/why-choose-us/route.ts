@@ -183,7 +183,3 @@ export async function PATCH(request: Request) {
   }
 }
 
-// ---------------- OPTIONS (CORS Preflight) ----------------
-export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200, headers: corsHeaders });
-}
