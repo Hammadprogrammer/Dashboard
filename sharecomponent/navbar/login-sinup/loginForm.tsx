@@ -48,7 +48,7 @@ export default function LoginForm({ onClose, onLoginSuccess }: LoginFormProps) {
       <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up">
         {/* Heading */}
         <h2 className="text-3xl font-extrabold text-center text-gray-900 mb-2">
-          Welcome Back 👋
+          Welcome 
         </h2>
         <p className="text-gray-600 mb-8 text-center text-lg">
           Please log in to continue
