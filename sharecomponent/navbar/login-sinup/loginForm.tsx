@@ -46,7 +46,6 @@ export default function LoginForm({ onClose, onLoginSuccess }: LoginFormProps) {
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-gray-900 to-black bg-opacity-95 flex items-center justify-center z-50 p-4">
       <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up">
-        {/* Heading */}
         <h2 className="text-3xl font-extrabold text-center text-gray-900 mb-2">
           Welcome 
         </h2>
@@ -54,7 +53,6 @@ export default function LoginForm({ onClose, onLoginSuccess }: LoginFormProps) {
           Please log in to continue
         </p>
 
-        {/* Login Form */}
         <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <input
             type="email"
