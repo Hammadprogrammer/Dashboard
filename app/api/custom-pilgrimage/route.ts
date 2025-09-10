@@ -9,14 +9,30 @@ const corsHeaders = {
 };
 
 // ---------------- GET ----------------
+// export async function GET() {
+//   try {
+//     const data = await prisma.customPilgrimage.findMany({
+//       orderBy: { createdAt: "desc" },
+//     });
+//     return NextResponse.json(data, { headers: corsHeaders });
+//   } catch (error: any) {
+//     console.error("❌ GET error:", error.message);
+//     return NextResponse.json(
+//       { error: "Failed to fetch data", details: error.message },
+//       { status: 500, headers: corsHeaders }
+//     );
+//   }
+// }
 export async function GET() {
   try {
     const data = await prisma.customPilgrimage.findMany({
       orderBy: { createdAt: "desc" },
     });
+
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
     console.error("❌ GET error:", error.message);
+
     return NextResponse.json(
       { error: "Failed to fetch data", details: error.message },
       { status: 500, headers: corsHeaders }

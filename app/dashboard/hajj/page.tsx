@@ -169,7 +169,7 @@ export default function HajjDashboardPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto mt-15">
       <h1 className="text-3xl font-bold mb-6 text-center">
         🕋 Hajj Packages Dashboard
       </h1>
