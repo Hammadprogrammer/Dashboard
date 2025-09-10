@@ -1,19 +1,19 @@
+// file: components/Navbar.jsx
+
 "use client";
 import React, { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
-import style from "./navbar.module.scss";
-import LoginForm from "./login-sinup/loginForm";
 import Link from "next/link";
+import LoginForm from "./login-sinup/loginForm";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [showSignup, setShowSignup] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // check login status on load
+  // ✅ Check login status on load
   useEffect(() => {
     const storedLoginStatus = localStorage.getItem("isLoggedIn");
     if (storedLoginStatus === "true") {
@@ -33,7 +33,10 @@ const Navbar = () => {
   const handleLogout = () => {
     setIsLoggedIn(false);
     localStorage.removeItem("isLoggedIn");
-    
+    localStorage.removeItem("token");
+
+    // ✅ Refresh the page after logout
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -49,54 +52,104 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  if (loading) return null; 
+  if (loading) return null;
 
   return (
     <>
-      <div className={`${style.main} ${scrolled ? style.scrolled : ""}`}>
-        <nav className={style.navbar}>
+      <div
+        className={`fixed top-0 left-0 w-full z-40 transition-all duration-300 ${
+          scrolled ? "bg-white shadow-md text-black" : "bg-transparent text-white"
+        }`}
+      >
+        <nav className="container mx-auto flex items-center justify-between p-4">
+          <h1 className="font-bold text-2xl">
+            <strong>Dashboard</strong>
+          </h1>
 
-           <h1><strong>Dashboard</strong></h1>
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <button onClick={handleHamburgerClick}>
+              <span
+                className={`text-3xl ${
+                  scrolled ? "text-gray-800" : "text-white"
+                }`}
+              >
+                ☰
+              </span>
+            </button>
+          </div>
 
-          <div className={`${style.navbarLinks} ${isOpen ? style.active : ""}`}>
+          {/* Menu Links */}
+          <div
+            className={`fixed inset-y-0 right-0 w-64 bg-gray-800 p-8 transform transition-transform duration-300 md:relative md:flex md:w-auto md:bg-transparent md:p-0 ${
+              isOpen ? "translate-x-0" : "translate-x-full"
+            } md:translate-x-0 flex flex-col items-start gap-4 md:flex-row md:items-center`}
+          >
             {isOpen && (
-              <div className={style.closeIcon} onClick={handleCloseClick}>
-                <FaTimes color="white" size={30} />
-              </div>
+              <button
+                onClick={handleCloseClick}
+                className="absolute top-4 right-4 text-white md:hidden"
+              >
+                <FaTimes size={30} />
+              </button>
             )}
 
-            <Link href="/">Home</Link>
-            <Link href="/destinations">Destinations</Link>
-            <Link href="/about">About Us</Link>
-            <Link href="/knowledge">Knowledge</Link>
+            <Link
+              href="/"
+              onClick={() => setIsOpen(false)}
+              className="text-white md:text-inherit"
+            >
+              Home
+            </Link>
+            <Link
+              href="/destinations"
+              onClick={() => setIsOpen(false)}
+              className="text-white md:text-inherit"
+            >
+              Destinations
+            </Link>
+            <Link
+              href="/about"
+              onClick={() => setIsOpen(false)}
+              className="text-white md:text-inherit"
+            >
+              About Us
+            </Link>
+            <Link
+              href="/knowledge"
+              onClick={() => setIsOpen(false)}
+              className="text-white md:text-inherit"
+            >
+              Knowledge
+            </Link>
 
+            {/* Auth Buttons */}
             {!isLoggedIn ? (
               <button
-                onClick={() => setShowLogin(true)}
-                className={style.loginBtn}
+                onClick={() => {
+                  setShowLogin(true);
+                  setIsOpen(false);
+                }}
+                className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors"
               >
                 Log In
               </button>
             ) : (
-              <button onClick={handleLogout} className={style.loginBtn}>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-4 py-2 rounded-full hover:bg-red-600 transition-colors"
+              >
                 Log Out
               </button>
             )}
           </div>
-
-          <div className={style.hamburger} onClick={handleHamburgerClick}>
-            ☰
-          </div>
         </nav>
       </div>
 
+      {/* Login Form Modal */}
       {showLogin && (
         <LoginForm
           onClose={() => setShowLogin(false)}
-          onSwitchToSignup={() => {
-            setShowLogin(false);
-            setShowSignup(true);
-          }}
           onLoginSuccess={() => {
             setIsLoggedIn(true);
             localStorage.setItem("isLoggedIn", "true");
@@ -104,8 +157,6 @@ const Navbar = () => {
           }}
         />
       )}
-
-     
     </>
   );
 };
