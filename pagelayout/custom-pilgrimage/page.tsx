@@ -310,7 +310,7 @@ export default function CustomPilgrimageDashboard() {
                   <button
                     onClick={() => handleEdit(entry)}
                     className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                    disabled={loading}
+                    disabled={loading || !!editingId} // 💡 Disable Edit button while editing
                   >
                     Edit
                   </button>
@@ -319,19 +319,19 @@ export default function CustomPilgrimageDashboard() {
                       setDeleteId(entry.id);
                       setIsDeleteOpen(true);
                     }}
-                    className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                    disabled={loading}
+                    className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                    disabled={loading || !!editingId} // 💡 Disable Delete button while editing
                   >
                     Delete
                   </button>
                   <button
                     onClick={() => toggleActive(entry.id, entry.isActive)}
-                    className={`px-4 py-1 rounded ${
+                    className={`px-4 py-1 rounded disabled:opacity-50 ${
                       entry.isActive
                         ? "bg-green-500 hover:bg-green-600"
                         : "bg-gray-500 hover:bg-gray-600"
                     }`}
-                    disabled={loading}
+                    disabled={loading || !!editingId} // 💡 Disable toggle button while editing
                   >
                     {entry.isActive ? "Active ✅" : "Inactive ❌"}
                   </button>

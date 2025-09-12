@@ -5,6 +5,7 @@ import { Dialog, Transition } from "@headlessui/react";
 
 interface Testimonial {
   id: number;
+  rating: number;
   description: string;
   image: string;
   name: string;
@@ -16,6 +17,7 @@ export default function TestimonialDashboard() {
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
+  const [rating, setRating] = useState(5.0);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -29,6 +31,7 @@ export default function TestimonialDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  const formRef = useRef<HTMLFormElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
@@ -60,6 +63,7 @@ export default function TestimonialDashboard() {
     setDescription("");
     setName("");
     setTitle("");
+    setRating(5.0);
     setImageFile(null);
     setEditingId(null);
     if (imageInputRef.current) {
@@ -71,9 +75,14 @@ export default function TestimonialDashboard() {
     e.preventDefault();
     setLoading(true);
 
-    if (!description.trim() || !name.trim() || !title.trim()) {
+    if (!description.trim() || !name.trim() || !title.trim() || !rating) {
       setLoading(false);
       return showModal("⚠️ All fields are required", "warning");
+    }
+
+    if (rating < 1 || rating > 5) {
+      setLoading(false);
+      return showModal("⚠️ Rating must be between 1.0 and 5.0", "warning");
     }
 
     if (!editingId && !imageFile) {
@@ -85,6 +94,7 @@ export default function TestimonialDashboard() {
     formData.append("description", description);
     formData.append("name", name);
     formData.append("title", title);
+    formData.append("rating", String(rating));
 
     if (editingId) {
       formData.append("id", String(editingId));
@@ -118,7 +128,14 @@ export default function TestimonialDashboard() {
     setDescription(entry.description);
     setName(entry.name);
     setTitle(entry.title);
-    setImageFile(null); // Clear file input for editing
+    setRating(entry.rating);
+    setImageFile(null);
+    if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+    }
+    setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleDelete = async () => {
@@ -142,18 +159,17 @@ export default function TestimonialDashboard() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto"> {/* 💡 Adjusted padding for smaller screens */}
       <h1 className="text-3xl font-bold mb-6 text-center">What People Say</h1>
 
-      {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
       )}
 
-      {/* --- FORM --- */}
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
       >
@@ -161,7 +177,7 @@ export default function TestimonialDashboard() {
           placeholder="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none" // 💡 Added resize-none class
           rows={4}
           disabled={loading}
         />
@@ -181,6 +197,22 @@ export default function TestimonialDashboard() {
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
           disabled={loading}
         />
+        <input
+          type="text"
+          placeholder="Rating (1.0 - 5.0)"
+          value={rating}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                setRating(value === "" ? 0 : parseFloat(value));
+            }
+          }}
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 rating-input"
+          disabled={loading}
+          style={{ MozAppearance: 'textfield' }}
+          pattern="[0-9]*\.?[0-9]*"
+        />
+
         <input
           type="file"
           accept="image/*"
@@ -221,8 +253,11 @@ export default function TestimonialDashboard() {
               key={entry.id}
               className="bg-[#24294b] text-white rounded-lg shadow-xl p-6 flex flex-col items-start gap-4"
             >
-              <p className="text-gray-300 font-light mb-4 text-sm">{entry.description}</p>
-              
+              <div className="flex justify-between w-full items-center">
+                <p className="text-gray-300 font-light mb-4 text-sm">{entry.description}</p>
+                <span className="text-yellow-400 font-bold ml-auto text-xl">{entry.rating} ⭐</span>
+              </div>
+               
               <div className="flex items-center w-full mt-auto">
                 {entry.image && (
                   <img
@@ -250,8 +285,8 @@ export default function TestimonialDashboard() {
                     setDeleteId(entry.id);
                     setIsDeleteOpen(true);
                   }}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 w-full"
-                  disabled={loading}
+                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 w-full disabled:opacity-50"
+                  disabled={loading || !!editingId}
                 >
                   Delete
                 </button>

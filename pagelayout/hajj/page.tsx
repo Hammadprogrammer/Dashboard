@@ -21,8 +21,7 @@ export default function HajjDashboardPage() {
   const [category, setCategory] = useState<Package["category"]>("Economic");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  
-  // ✅ Renamed from fetching to isProcessing for broader use
+
   const [isProcessing, setIsProcessing] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,7 +34,6 @@ export default function HajjDashboardPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState(false); // This can be removed, as isProcessing now covers it
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
@@ -45,7 +43,7 @@ export default function HajjDashboardPage() {
 
   const fetchPackages = async () => {
     try {
-      setIsProcessing(true); // <--- Start loader for fetching
+      setIsProcessing(true);
       const res = await fetch("/api/hajj?all=true");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -55,7 +53,7 @@ export default function HajjDashboardPage() {
       setPackages([]);
       showModal("⚠️ Error fetching packages", "error");
     } finally {
-      setIsProcessing(false); // <--- Stop loader
+      setIsProcessing(false);
     }
   };
 
@@ -66,7 +64,6 @@ export default function HajjDashboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ Validation
     if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
     if (/^\d+$/.test(title.trim()))
       return showModal("⚠️ Title cannot be only numbers", "warning");
@@ -80,7 +77,7 @@ export default function HajjDashboardPage() {
     if (!id && !file)
       return showModal("⚠️ Please upload an image", "warning");
 
-    setIsProcessing(true); // <--- Start loader
+    setIsProcessing(true);
     try {
       const formData = new FormData();
       if (id) formData.append("id", id);
@@ -106,12 +103,12 @@ export default function HajjDashboardPage() {
       console.error("❌ Save Error:", err);
       showModal("⚠️ Error saving package", "error");
     } finally {
-      setIsProcessing(false); // <--- Stop loader
+      setIsProcessing(false);
     }
   };
 
   const toggleActive = async (pkg: Package) => {
-    setIsProcessing(true); // <--- Start loader
+    setIsProcessing(true);
     try {
       const res = await fetch("/api/hajj", {
         method: "PATCH",
@@ -126,7 +123,7 @@ export default function HajjDashboardPage() {
       console.error("❌ Toggle Error:", err);
       showModal("⚠️ Could not update status", "error");
     } finally {
-      setIsProcessing(false); // <--- Stop loader
+      setIsProcessing(false);
     }
   };
 
@@ -137,7 +134,7 @@ export default function HajjDashboardPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    setIsProcessing(true); // <--- Start loader
+    setIsProcessing(true);
     try {
       const res = await fetch(`/api/hajj?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
@@ -150,7 +147,7 @@ export default function HajjDashboardPage() {
       console.error("❌ Delete Error:", err);
       showModal("⚠️ Could not delete package", "error");
     } finally {
-      setIsProcessing(false); // <--- Stop loader
+      setIsProcessing(false);
       setIsDeleteOpen(false);
       setDeleteId(null);
     }
@@ -174,7 +171,7 @@ export default function HajjDashboardPage() {
         🕋 Hajj Packages Dashboard
       </h1>
 
-      {isProcessing && ( // <-- Use isProcessing to show/hide the loader
+      {isProcessing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
@@ -201,7 +198,7 @@ export default function HajjDashboardPage() {
           value={price}
           onChange={(e) => {
             const val = e.target.value;
-            if (/^\d*(\.\d{1,2})?$/.test(val)) setPrice(val);
+            if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
           }}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
@@ -286,39 +283,69 @@ export default function HajjDashboardPage() {
               </p>
 
               <div className="flex justify-between gap-2 mt-auto">
-                <button
-                  onClick={() => toggleActive(pkg)}
-                  disabled={isProcessing}
-                  className={`px-4 py-1 rounded ${
-                    pkg.isActive
-                      ? "bg-green-500 hover:bg-green-600"
-                      : "bg-red-500 hover:bg-red-600"
-                  }`}
-                >
-                  {pkg.isActive ? "Active ✅" : "Inactive ❌"}
-                </button>
+                {/* Conditional rendering based on edit mode */}
+                {id === pkg.id.toString() ? (
+                  <>
+                    <button
+                      disabled={true}
+                      className={`px-4 py-1 rounded opacity-50 cursor-not-allowed ${
+                        pkg.isActive
+                          ? "bg-green-500"
+                          : "bg-red-500"
+                      }`}
+                    >
+                      {pkg.isActive ? "Active ✅" : "Inactive ❌"}
+                    </button>
+                    <button
+                      disabled={true}
+                      className="bg-yellow-500 text-black px-4 py-1 rounded opacity-50 cursor-not-allowed"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      disabled={true}
+                      className="bg-red-500 text-white px-4 py-1 rounded opacity-50 cursor-not-allowed"
+                    >
+                      Delete
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleActive(pkg)}
+                      disabled={isProcessing || !!id}
+                      className={`px-4 py-1 rounded disabled:opacity-50 ${
+                        pkg.isActive
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "bg-red-500 hover:bg-red-600"
+                      }`}
+                    >
+                      {pkg.isActive ? "Active ✅" : "Inactive ❌"}
+                    </button>
 
-                <button
-                  onClick={() => {
-                    setId(pkg.id.toString());
-                    setTitle(pkg.title);
-                    setPrice(pkg.price.toString());
-                    setCategory(pkg.category);
-                    setPreview(pkg.imageUrl);
-                  }}
-                  disabled={isProcessing}
-                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                >
-                  Edit
-                </button>
+                    <button
+                      onClick={() => {
+                        setId(pkg.id.toString());
+                        setTitle(pkg.title);
+                        setPrice(pkg.price.toString());
+                        setCategory(pkg.category);
+                        setPreview(pkg.imageUrl);
+                      }}
+                      disabled={isProcessing || !!id}
+                      className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
 
-                <button
-                  onClick={() => confirmDelete(pkg.id)}
-                  disabled={isProcessing}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
+                    <button
+                      onClick={() => confirmDelete(pkg.id)}
+                      disabled={isProcessing || !!id}
+                      className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}

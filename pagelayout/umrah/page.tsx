@@ -183,7 +183,8 @@ export default function UmrahDashboardPage() {
           placeholder="Package Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          disabled={isProcessing}
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 disabled:opacity-50"
         />
 
         <input
@@ -194,7 +195,8 @@ export default function UmrahDashboardPage() {
             const val = e.target.value;
             if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
           }}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          disabled={isProcessing}
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 disabled:opacity-50"
         />
 
         <select
@@ -203,7 +205,7 @@ export default function UmrahDashboardPage() {
           disabled={!!id || isProcessing}
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+          } disabled:opacity-50`}
         >
           {categories.map((cat) => (
             <option key={cat} value={cat}>
@@ -222,7 +224,7 @@ export default function UmrahDashboardPage() {
             setPreview(selected ? URL.createObjectURL(selected) : null);
           }}
           disabled={isProcessing}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white disabled:opacity-50"
         />
 
         {preview && (
@@ -281,7 +283,7 @@ export default function UmrahDashboardPage() {
               <div className="flex justify-between gap-2 mt-auto">
                 <button
                   onClick={() => toggleActive(pkg)}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !!id}
                   className={`px-4 py-1 rounded disabled:opacity-50 ${
                     pkg.isActive
                       ? "bg-green-500 hover:bg-green-600"
@@ -299,7 +301,7 @@ export default function UmrahDashboardPage() {
                     setCategory(pkg.category);
                     setPreview(pkg.imageUrl);
                   }}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !!id}
                   className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
                 >
                   Edit
@@ -307,7 +309,7 @@ export default function UmrahDashboardPage() {
 
                 <button
                   onClick={() => confirmDelete(pkg.id)}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !!id}
                   className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                 >
                   Delete

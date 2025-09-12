@@ -283,39 +283,60 @@ export default function DomesticDashboardPage() {
               </p>
 
               <div className="flex justify-between gap-2 mt-auto">
-                <button
-                  onClick={() => toggleActive(pkg)}
-                  disabled={isProcessing}
-                  className={`px-4 py-1 rounded disabled:opacity-50 ${
-                    pkg.isActive
-                      ? "bg-green-500 hover:bg-green-600"
-                      : "bg-red-500 hover:bg-red-600"
-                  }`}
-                >
-                  {pkg.isActive ? "Active ✅" : "Inactive ❌"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setId(pkg.id.toString());
-                    setTitle(pkg.title);
-                    setPrice(pkg.price.toString());
-                    setCategory(pkg.category);
-                    setPreview(pkg.imageUrl);
-                  }}
-                  disabled={isProcessing}
-                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => confirmDelete(pkg.id)}
-                  disabled={isProcessing}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                {id ? (
+                  <>
+                    <button
+                      disabled={true}
+                      className={`px-4 py-1 rounded disabled:opacity-50 ${
+                        pkg.isActive
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "bg-red-500 hover:bg-red-600"
+                      }`}
+                    >
+                      {pkg.isActive ? "Active ✅" : "Inactive ❌"}
+                    </button>
+                    <button
+                      disabled={true}
+                      className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleActive(pkg)}
+                      disabled={isProcessing}
+                      className={`px-4 py-1 rounded disabled:opacity-50 ${
+                        pkg.isActive
+                          ? "bg-green-500 hover:bg-green-600"
+                          : "bg-red-500 hover:bg-red-600"
+                      }`}
+                    >
+                      {pkg.isActive ? "Active ✅" : "Inactive ❌"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setId(pkg.id.toString());
+                        setTitle(pkg.title);
+                        setPrice(pkg.price.toString());
+                        setCategory(pkg.category);
+                        setPreview(pkg.imageUrl);
+                      }}
+                      disabled={isProcessing}
+                      className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => confirmDelete(pkg.id)}
+                      disabled={isProcessing}
+                      className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}

@@ -29,8 +29,8 @@ export default function UmrahServiceDashboard() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // --- Loading States ---
-  const [loading, setLoading] = useState(false); 
-  const [fetching, setFetching] = useState(true); 
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   // Use keys to force re-render and clear file inputs
   const [heroKey, setHeroKey] = useState(0);
@@ -72,7 +72,7 @@ export default function UmrahServiceDashboard() {
   };
 
   useEffect(() => {
-      fetchServices();
+    fetchServices();
   }, []);
 
   // ✅ Reset form
@@ -97,29 +97,29 @@ export default function UmrahServiceDashboard() {
       setLoading(false);
       return showModal("⚠️ Title and Description are required", "warning");
     }
-    
+
     // Validation for new service
     if (!editingId) {
-        if (imageType === "background" && !heroFile) {
-            setLoading(false);
-            return showModal("⚠️ Please upload a background image for a new service", "warning");
-        }
-        if (imageType === "services" && galleryFiles.length === 0) {
-            setLoading(false);
-            return showModal("⚠️ Please upload at least one service image for a new service", "warning");
-        }
+      if (imageType === "background" && !heroFile) {
+        setLoading(false);
+        return showModal("⚠️ Please upload a background image for a new service", "warning");
+      }
+      if (imageType === "services" && galleryFiles.length === 0) {
+        setLoading(false);
+        return showModal("⚠️ Please upload at least one service image for a new service", "warning");
+      }
     }
 
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
     formData.append("isActive", String(isActive));
-    
+
     // Add ID if editing
     if (editingId) {
       formData.append("id", String(editingId));
     }
-    
+
     // Append files based on imageType
     if (imageType === "background" && heroFile) {
       formData.append("heroImage", heroFile);
@@ -127,7 +127,7 @@ export default function UmrahServiceDashboard() {
     if (imageType === "services" && galleryFiles.length > 0) {
       galleryFiles.forEach((file) => formData.append("serviceImages", file));
     }
-    
+
     try {
       const res = await fetch("/api/umrah-service", {
         method: "POST",
@@ -159,7 +159,7 @@ export default function UmrahServiceDashboard() {
       setImageType("services");
     }
     // Clear file inputs for new selection
-    setHeroFile(null); 
+    setHeroFile(null);
     setGalleryFiles([]);
 
     // Scroll to the form
@@ -262,7 +262,7 @@ export default function UmrahServiceDashboard() {
             accept="image/*"
             onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
             className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={heroKey} 
+            key={heroKey}
             disabled={loading}
           />
         )}
@@ -293,7 +293,7 @@ export default function UmrahServiceDashboard() {
             <button
               type="button"
               onClick={resetForm}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
               disabled={loading}
             >
               Cancel
@@ -326,8 +326,8 @@ export default function UmrahServiceDashboard() {
                     <div className="flex justify-between gap-2 mt-4">
                       <button
                         onClick={() => handleEdit(service)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                        disabled={loading}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Edit
                       </button>
@@ -336,19 +336,19 @@ export default function UmrahServiceDashboard() {
                           setDeleteId(service.id);
                           setIsDeleteOpen(true);
                         }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                        disabled={loading}
+                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                        disabled={loading || (!!editingId && editingId !== service.id)}
                       >
                         Delete
                       </button>
                       <button
                         onClick={() => toggleActive(service.id, service.isActive)}
-                        className={`px-4 py-1 rounded ${
+                        className={`px-4 py-1 rounded disabled:opacity-50 ${
                           service.isActive
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading}
+                        disabled={loading || (!!editingId && editingId !== service.id)}
                       >
                         {service.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
@@ -383,8 +383,8 @@ export default function UmrahServiceDashboard() {
                     <div className="flex justify-between gap-2 mt-4">
                       <button
                         onClick={() => handleEdit(service)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                        disabled={loading}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Edit
                       </button>
@@ -393,19 +393,19 @@ export default function UmrahServiceDashboard() {
                           setDeleteId(service.id);
                           setIsDeleteOpen(true);
                         }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                        disabled={loading}
+                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                        disabled={loading || (!!editingId && editingId !== service.id)}
                       >
                         Delete
                       </button>
                       <button
                         onClick={() => toggleActive(service.id, service.isActive)}
-                        className={`px-4 py-1 rounded ${
+                        className={`px-4 py-1 rounded disabled:opacity-50 ${
                           service.isActive
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading}
+                        disabled={loading || (!!editingId && editingId !== service.id)}
                       >
                         {service.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
