@@ -22,7 +22,6 @@ export default function DomesticDashboardPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  // ✅ New, centralized state for all async operations
   const [isProcessing, setIsProcessing] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,7 +34,6 @@ export default function DomesticDashboardPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  // Removed `loading` and `deleting` states
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
@@ -45,7 +43,7 @@ export default function DomesticDashboardPage() {
 
   const fetchPackages = async () => {
     try {
-      setIsProcessing(true); // <-- Start loader
+      setIsProcessing(true);
       const res = await fetch("/api/domestic?all=true");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -55,7 +53,7 @@ export default function DomesticDashboardPage() {
       setPackages([]);
       showModal("⚠️ Error fetching packages", "error");
     } finally {
-      setIsProcessing(false); // <-- Stop loader
+      setIsProcessing(false);
     }
   };
 
@@ -66,7 +64,6 @@ export default function DomesticDashboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ Validation
     if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
     if (/^\d+$/.test(title.trim()))
       return showModal("⚠️ Title cannot be only numbers", "warning");
@@ -78,7 +75,7 @@ export default function DomesticDashboardPage() {
     if (!id && !file)
       return showModal("⚠️ Please upload an image", "warning");
 
-    setIsProcessing(true); // <-- Start loader
+    setIsProcessing(true);
     try {
       const formData = new FormData();
       if (id) formData.append("id", id);
@@ -99,12 +96,12 @@ export default function DomesticDashboardPage() {
       console.error("❌ Save Error:", err);
       showModal("⚠️ Error saving package", "error");
     } finally {
-      setIsProcessing(false); // <-- Stop loader
+      setIsProcessing(false);
     }
   };
 
   const toggleActive = async (pkg: Package) => {
-    setIsProcessing(true); // <-- Start loader
+    setIsProcessing(true);
     try {
       const res = await fetch("/api/domestic", {
         method: "PATCH",
@@ -119,7 +116,7 @@ export default function DomesticDashboardPage() {
       console.error("❌ Toggle Error:", err);
       showModal("⚠️ Could not update status", "error");
     } finally {
-      setIsProcessing(false); // <-- Stop loader
+      setIsProcessing(false);
     }
   };
 
@@ -130,8 +127,7 @@ export default function DomesticDashboardPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-
-    setIsProcessing(true); // <-- Start loader
+    setIsProcessing(true);
     try {
       const res = await fetch(`/api/domestic?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
@@ -144,7 +140,7 @@ export default function DomesticDashboardPage() {
       console.error("❌ Delete Error:", err);
       showModal("⚠️ Could not delete package", "error");
     } finally {
-      setIsProcessing(false); // <-- Stop loader
+      setIsProcessing(false);
       setIsDeleteOpen(false);
       setDeleteId(null);
     }
@@ -163,19 +159,17 @@ export default function DomesticDashboardPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto mt-15">
       <h1 className="text-3xl font-bold mb-6 text-center">
         🏕️ Domestic Packages Dashboard
       </h1>
 
-      {/* --- LOADER --- */}
       {isProcessing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
       )}
 
-      {/* --- FORM --- */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
@@ -184,9 +178,11 @@ export default function DomesticDashboardPage() {
           type="text"
           placeholder="Package Title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          disabled={isProcessing}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 disabled:opacity-50"
+          onChange={(e) => {
+            const val = e.target.value;
+            setTitle(val);
+          }}
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
 
         <input
@@ -197,17 +193,16 @@ export default function DomesticDashboardPage() {
             const val = e.target.value;
             if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
           }}
-          disabled={isProcessing}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 disabled:opacity-50"
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
         />
 
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          disabled={!!id || isProcessing}
+          disabled={!!id}
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
-          } disabled:opacity-50`}
+          }`}
         >
           {categories.map((cat) => (
             <option key={cat} value={cat}>
@@ -225,8 +220,7 @@ export default function DomesticDashboardPage() {
             setFile(selected);
             setPreview(selected ? URL.createObjectURL(selected) : null);
           }}
-          disabled={isProcessing}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white disabled:opacity-50"
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
         />
 
         {preview && (
@@ -246,14 +240,13 @@ export default function DomesticDashboardPage() {
             disabled={isProcessing}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
-            {isProcessing ? "Processing..." : id ? "Update Package" : "Save Package"}
+            {isProcessing ? "Uploading..." : id ? "Update Package" : "Save Package"}
           </button>
           {id && (
             <button
               type="button"
               onClick={resetForm}
-              disabled={isProcessing}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
+              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
             >
               Cancel
             </button>
@@ -261,9 +254,9 @@ export default function DomesticDashboardPage() {
         </div>
       </form>
 
-      {/* --- LIST --- */}
-      {!isProcessing && packages.length === 0 ? (
-        <p className="text-center text-gray-500">No packages available.</p>
+      {/* LIST */}
+      {packages.length === 0 && !isProcessing ? (
+        <p className="text-center text-gray-500">No packages available yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {packages.map((pkg) => (
@@ -283,21 +276,28 @@ export default function DomesticDashboardPage() {
               </p>
 
               <div className="flex justify-between gap-2 mt-auto">
-                {id ? (
+                {/* Conditional rendering based on edit mode */}
+                {id === pkg.id.toString() ? (
                   <>
                     <button
                       disabled={true}
-                      className={`px-4 py-1 rounded disabled:opacity-50 ${
+                      className={`px-4 py-1 rounded opacity-50 cursor-not-allowed ${
                         pkg.isActive
-                          ? "bg-green-500 hover:bg-green-600"
-                          : "bg-red-500 hover:bg-red-600"
+                          ? "bg-green-500"
+                          : "bg-red-500"
                       }`}
                     >
                       {pkg.isActive ? "Active ✅" : "Inactive ❌"}
                     </button>
                     <button
                       disabled={true}
-                      className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                      className="bg-yellow-500 text-black px-4 py-1 rounded opacity-50 cursor-not-allowed"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      disabled={true}
+                      className="bg-red-500 text-white px-4 py-1 rounded opacity-50 cursor-not-allowed"
                     >
                       Delete
                     </button>
@@ -306,7 +306,7 @@ export default function DomesticDashboardPage() {
                   <>
                     <button
                       onClick={() => toggleActive(pkg)}
-                      disabled={isProcessing}
+                      disabled={isProcessing || !!id}
                       className={`px-4 py-1 rounded disabled:opacity-50 ${
                         pkg.isActive
                           ? "bg-green-500 hover:bg-green-600"
@@ -315,6 +315,7 @@ export default function DomesticDashboardPage() {
                     >
                       {pkg.isActive ? "Active ✅" : "Inactive ❌"}
                     </button>
+
                     <button
                       onClick={() => {
                         setId(pkg.id.toString());
@@ -323,14 +324,15 @@ export default function DomesticDashboardPage() {
                         setCategory(pkg.category);
                         setPreview(pkg.imageUrl);
                       }}
-                      disabled={isProcessing}
+                      disabled={isProcessing || !!id}
                       className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
                     >
                       Edit
                     </button>
+
                     <button
                       onClick={() => confirmDelete(pkg.id)}
-                      disabled={isProcessing}
+                      disabled={isProcessing || !!id}
                       className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                     >
                       Delete
@@ -343,7 +345,7 @@ export default function DomesticDashboardPage() {
         </div>
       )}
 
-      {/* --- MODALS --- */}
+      {/* MODALS */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"

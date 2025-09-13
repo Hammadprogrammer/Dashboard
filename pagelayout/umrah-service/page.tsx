@@ -207,9 +207,9 @@ export default function UmrahServiceDashboard() {
     }
   };
 
-  // Filter services by image type
   const heroServices = services.filter(service => service.heroImage);
   const galleryServices = services.filter(service => service.serviceImages.length > 0);
+  const isEditing = !!editingId;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -250,7 +250,7 @@ export default function UmrahServiceDashboard() {
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "services")}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
-          disabled={!!editingId || loading}
+          disabled={isEditing || loading}
         >
           <option value="background">Background Image</option>
           <option value="services">Service Images</option>
@@ -287,9 +287,9 @@ export default function UmrahServiceDashboard() {
             disabled={loading}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
-            {loading ? "Saving..." : editingId ? "Update Service" : "Save Service"}
+            {loading ? "Saving..." : isEditing ? "Update Service" : "Save Service"}
           </button>
-          {editingId && (
+          {isEditing && (
             <button
               type="button"
               onClick={resetForm}
@@ -327,7 +327,7 @@ export default function UmrahServiceDashboard() {
                       <button
                         onClick={() => handleEdit(service)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
+                        disabled={loading || isEditing}
                       >
                         Edit
                       </button>
@@ -337,7 +337,7 @@ export default function UmrahServiceDashboard() {
                           setIsDeleteOpen(true);
                         }}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || (!!editingId && editingId !== service.id)}
+                        disabled={loading || isEditing}
                       >
                         Delete
                       </button>
@@ -348,7 +348,7 @@ export default function UmrahServiceDashboard() {
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading || (!!editingId && editingId !== service.id)}
+                        disabled={loading || isEditing}
                       >
                         {service.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
@@ -384,7 +384,7 @@ export default function UmrahServiceDashboard() {
                       <button
                         onClick={() => handleEdit(service)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
+                        disabled={loading || isEditing}
                       >
                         Edit
                       </button>
@@ -394,7 +394,7 @@ export default function UmrahServiceDashboard() {
                           setIsDeleteOpen(true);
                         }}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || (!!editingId && editingId !== service.id)}
+                        disabled={loading || isEditing}
                       >
                         Delete
                       </button>
@@ -405,7 +405,7 @@ export default function UmrahServiceDashboard() {
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading || (!!editingId && editingId !== service.id)}
+                        disabled={loading || isEditing}
                       >
                         {service.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>

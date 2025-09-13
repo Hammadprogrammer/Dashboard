@@ -9,7 +9,7 @@ interface WhyChooseUsItem {
   description: string;
   imageUrl: string;
   publicId: string;
-  isActive: boolean; // ✅ Updated interface
+  isActive: boolean;
 }
 
 export default function WhyChooseUsDashboard() {
@@ -151,7 +151,6 @@ export default function WhyChooseUsDashboard() {
     }
   };
 
-  // ✅ New function to toggle active status
   const toggleActive = async (id: number, currentStatus: boolean) => {
     setIsProcessing(true);
     try {
@@ -170,6 +169,8 @@ export default function WhyChooseUsDashboard() {
       setIsProcessing(false);
     }
   };
+
+  const isAnyActionDisabled = isProcessing || !!editingId;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -262,11 +263,10 @@ export default function WhyChooseUsDashboard() {
               <h2 className="font-bold text-lg">{item.title}</h2>
               <p className="text-gray-300 mb-3 line-clamp-3">{item.description}</p>
               
-              {/* ✅ New button for Active/Inactive status */}
               <div className="flex justify-between gap-2 mt-auto">
                 <button
                   onClick={() => toggleActive(item.id, item.isActive)}
-                  disabled={isProcessing}
+                  disabled={isAnyActionDisabled}
                   className={`px-4 py-1 rounded disabled:opacity-50 ${
                     item.isActive
                       ? "bg-green-500 hover:bg-green-600"
@@ -277,14 +277,14 @@ export default function WhyChooseUsDashboard() {
                 </button>
                 <button
                   onClick={() => handleEdit(item)}
-                  disabled={isProcessing}
+                  disabled={isAnyActionDisabled}
                   className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => confirmDelete(item.id)}
-                  disabled={isProcessing}
+                  disabled={isAnyActionDisabled}
                   className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                 >
                   Delete

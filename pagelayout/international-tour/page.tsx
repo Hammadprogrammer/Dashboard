@@ -335,8 +335,8 @@ export default function InternationalTourDashboard() {
                     <div className="flex justify-between gap-2 mt-4">
                       <button
                         onClick={() => handleEdit(tour)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                        disabled={loading}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Edit
                       </button>
@@ -345,19 +345,19 @@ export default function InternationalTourDashboard() {
                           setDeleteId(tour.id);
                           setIsDeleteOpen(true);
                         }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                        disabled={loading}
+                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Delete
                       </button>
                       <button
                         onClick={() => toggleActive(tour.id, tour.isActive)}
-                        className={`px-4 py-1 rounded ${
+                        className={`px-4 py-1 rounded disabled:opacity-50 ${
                           tour.isActive
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading}
+                        disabled={loading || !!editingId}
                       >
                         {tour.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
@@ -392,8 +392,8 @@ export default function InternationalTourDashboard() {
                     <div className="flex justify-between gap-2 mt-4">
                       <button
                         onClick={() => handleEdit(tour)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
-                        disabled={loading}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Edit
                       </button>
@@ -402,19 +402,19 @@ export default function InternationalTourDashboard() {
                           setDeleteId(tour.id);
                           setIsDeleteOpen(true);
                         }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
-                        disabled={loading}
+                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                        disabled={loading || !!editingId}
                       >
                         Delete
                       </button>
                       <button
                         onClick={() => toggleActive(tour.id, tour.isActive)}
-                        className={`px-4 py-1 rounded ${
+                        className={`px-4 py-1 rounded disabled:opacity-50 ${
                           tour.isActive
                             ? "bg-green-500 hover:bg-green-600"
                             : "bg-gray-500 hover:bg-gray-600"
                         }`}
-                        disabled={loading}
+                        disabled={loading || !!editingId}
                       >
                         {tour.isActive ? "Active ✅" : "Inactive ❌"}
                       </button>
