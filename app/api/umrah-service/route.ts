@@ -232,11 +232,11 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "🗑️ Service deleted successfully" },
+      { message: "Service deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE error:", error.message);
+    console.error("DELETE error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete service", details: error.message },
       { status: 500, headers: corsHeaders }

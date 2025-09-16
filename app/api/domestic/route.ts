@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
-// ✅ Common CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -18,7 +17,7 @@ export async function GET() {
 
     return NextResponse.json(packages, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ GET /api/domestic error:", error.message);
+    console.error(" GET /api/domestic error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch packages", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
     const isActive = isActiveStr === "true";
     const normalizedCategory = category.toLowerCase();
 
-    // 🆕 New Logic: If creating a new package, check for and delete an existing one with the same category.
     if (!id) {
       const existingPackage = await prisma.domesticPackage.findFirst({
         where: { category: normalizedCategory },
@@ -67,22 +65,21 @@ export async function POST(req: NextRequest) {
         if (existingPackage.publicId) {
           try {
             await cloudinary.uploader.destroy(existingPackage.publicId);
-            console.log("🗑️ Old image deleted from Cloudinary:", existingPackage.publicId);
+            console.log(" Old image deleted from Cloudinary:", existingPackage.publicId);
           } catch (err: any) {
-            console.error("❌ Failed to delete old image from Cloudinary:", err.message);
+            console.error(" Failed to delete old image from Cloudinary:", err.message);
           }
         }
         await prisma.domesticPackage.delete({
           where: { id: existingPackage.id },
         });
-        console.log("🗑️ Old package deleted from database:", existingPackage.id);
+        console.log(" Old package deleted from database:", existingPackage.id);
       }
     }
 
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ If it's an update and a new file is uploaded, delete the old one.
     if (id && file) {
       const existing = await prisma.domesticPackage.findUnique({
         where: { id: parseInt(id) },
@@ -93,12 +90,12 @@ export async function POST(req: NextRequest) {
           await cloudinary.uploader.destroy(existing.publicId);
           console.log("🗑️ Old image deleted:", existing.publicId);
         } catch (err: any) {
-          console.error("❌ Failed to delete old image:", err.message);
+          console.error(" Failed to delete old image:", err.message);
         }
       }
     }
 
-    // ✅ Cloudinary Upload
+    //  Cloudinary Upload
     if (file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -123,7 +120,7 @@ export async function POST(req: NextRequest) {
         imageUrl = uploadRes.secure_url;
         publicId = uploadRes.public_id;
       } catch (err: any) {
-        console.error("❌ Cloudinary upload failed:", err.message);
+        console.error(" Cloudinary upload failed:", err.message);
         return NextResponse.json(
           { error: "Image upload failed", details: err.message },
           { status: 500, headers: corsHeaders }
@@ -158,7 +155,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST /api/domestic error:", error.message);
+    console.error(" POST /api/domestic error:", error.message);
     return NextResponse.json(
       { error: "Failed to save package", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -186,7 +183,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ PATCH /api/domestic error:", error.message);
+    console.error(" PATCH /api/domestic error:", error.message);
     return NextResponse.json(
       { error: "Failed to toggle active", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -221,9 +218,9 @@ export async function DELETE(req: NextRequest) {
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
-        console.log("🗑️ Image deleted:", existing.publicId);
+        console.log("Image deleted:", existing.publicId);
       } catch (err: any) {
-        console.error("❌ Cloudinary delete failed:", err.message);
+        console.error(" Cloudinary delete failed:", err.message);
       }
     }
 
@@ -232,11 +229,11 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "🗑️ Package deleted successfully" },
+      { message: " Package deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE /api/domestic error:", error.message);
+    console.error(" DELETE /api/domestic error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete package", details: error.message },
       { status: 500, headers: corsHeaders }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
-// ✅ Common CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -58,7 +57,6 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ Cloudinary Upload Helper
     async function uploadToCloudinary(file: File) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -82,7 +80,6 @@ export async function POST(req: NextRequest) {
 
     let saved;
     if (id) {
-      // ✅ Update existing package
       const existing = await prisma.hajjPackage.findUnique({
         where: { id: parseInt(id) },
       });
@@ -94,7 +91,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Agar new file di hai to pehle purani delete + nayi upload
       if (file) {
         if (existing.publicId) {
           try {
@@ -120,7 +116,6 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      // ✅ Create new package
       if (file) {
         const uploadRes = await uploadToCloudinary(file);
         imageUrl = uploadRes.secure_url;
@@ -190,7 +185,6 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Pehle package find karo (Cloudinary ke liye)
     const existing = await prisma.hajjPackage.findUnique({
       where: { id: parseInt(id) },
     });
@@ -202,26 +196,24 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Agar Cloudinary image hai to delete bhi karo
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
       } catch (err: any) {
-        console.error("❌ Cloudinary delete failed:", err.message);
+        console.error("Cloudinary delete failed:", err.message);
       }
     }
 
-    // Database se delete karo
     await prisma.hajjPackage.delete({
       where: { id: parseInt(id) },
     });
 
     return NextResponse.json(
-      { message: "🗑️ Package deleted successfully" },
+      { message: "Package deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE /api/hajj error:", error.message);
+    console.error("DELETE /api/hajj error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete package", details: error.message },
       { status: 500, headers: corsHeaders }

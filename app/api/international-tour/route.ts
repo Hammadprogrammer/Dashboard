@@ -17,7 +17,7 @@ export async function GET() {
     });
     return NextResponse.json(tours, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ GET error:", error.message);
+    console.error("GET error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch tours", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -96,12 +96,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 🔄 If a new background image is uploaded, delete the old one first
+      // If a new background image is uploaded, delete the old one first
       if (backgroundId && existing.backgroundId) {
         await cloudinary.uploader.destroy(existing.backgroundId);
       }
 
-      // 🔄 If new sliders are uploaded, delete the old sliders and their records
+      // If new sliders are uploaded, delete the old sliders and their records
       if (sliderUploads.length > 0) {
         for (const img of existing.sliderImages) {
           if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST error:", error.message);
+    console.error("POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save tour", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -176,7 +176,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ PATCH error:", error.message);
+    console.error("PATCH error:", error.message);
     return NextResponse.json(
       { error: "Failed to toggle active", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -221,11 +221,11 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "🗑️ Tour deleted successfully" },
+      { message: "Tour deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE error:", error.message);
+    console.error("DELETE error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete tour", details: error.message },
       { status: 500, headers: corsHeaders }

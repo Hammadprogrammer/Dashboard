@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
 import prisma  from '@/lib/prisma'
 
-// GET all trips
+// GET 
 export async function GET() {
   const trips = await prisma.trip.findMany({
     include: {
-      bookings: true, // optional: bookings bhi chahiye to
+      bookings: true, 
     },
   })
   return NextResponse.json(trips)
 }
 
-// CREATE trip
+// CREATE 
 export async function POST(req: Request) {
   const body = await req.json()
   const trip = await prisma.trip.create({

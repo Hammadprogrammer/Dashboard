@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma  from '@/lib/prisma'
 
-// GET all bookings
+// GET 
 export async function GET() {
   const bookings = await prisma.booking.findMany({
     include: {
@@ -12,7 +12,7 @@ export async function GET() {
   return NextResponse.json(bookings)
 }
 
-// CREATE booking
+// CREATE 
 export async function POST(req: Request) {
   const body = await req.json()
   const booking = await prisma.booking.create({

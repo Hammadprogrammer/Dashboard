@@ -8,21 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ---------------- GET ----------------
-// export async function GET() {
-//   try {
-//     const data = await prisma.customPilgrimage.findMany({
-//       orderBy: { createdAt: "desc" },
-//     });
-//     return NextResponse.json(data, { headers: corsHeaders });
-//   } catch (error: any) {
-//     console.error("❌ GET error:", error.message);
-//     return NextResponse.json(
-//       { error: "Failed to fetch data", details: error.message },
-//       { status: 500, headers: corsHeaders }
-//     );
-//   }
-// }
+
 export async function GET() {
   try {
     const data = await prisma.customPilgrimage.findMany({
@@ -31,7 +17,7 @@ export async function GET() {
 
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ GET error:", error.message);
+    console.error(" GET error:", error.message);
 
     return NextResponse.json(
       { error: "Failed to fetch data", details: error.message },
@@ -64,7 +50,7 @@ export async function POST(req: NextRequest) {
     let heroImageUrl: string | undefined;
     let heroImageId: string | undefined;
 
-    // --- Upload Hero Image ---
+    // --- Upload  Image ---
     if (heroFile) {
       const buffer = Buffer.from(await heroFile.arrayBuffer());
       const uploadRes: any = await new Promise((resolve, reject) => {
@@ -93,7 +79,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // If a new hero image is uploaded, delete the old one first
       if (heroImageId && existing.heroImageId) {
         await cloudinary.uploader.destroy(existing.heroImageId);
       }
@@ -162,7 +147,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ PATCH error:", error.message);
+    console.error("PATCH error:", error.message);
     return NextResponse.json(
       { error: "Failed to toggle active", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -205,7 +190,7 @@ export async function DELETE(req: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE error:", error.message);
+    console.error(" DELETE error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete entry", details: error.message },
       { status: 500, headers: corsHeaders }

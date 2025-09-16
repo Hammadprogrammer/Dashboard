@@ -1,11 +1,9 @@
-// app/api/why-choose-us/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
 
 const prisma = new PrismaClient();
 
-// Configure Cloudinary with your environment variables
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -19,7 +17,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// Helper function to delete image from Cloudinary
 const deleteImage = async (publicId: string) => {
   if (publicId) {
     await cloudinary.uploader.destroy(publicId);
@@ -62,7 +59,6 @@ export async function POST(request: NextRequest) {
     let imageUrl = null;
     let publicId = null;
 
-    // Handle image upload if a new file is provided
     if (imageFile) {
       const arrayBuffer = await imageFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -85,12 +81,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (id) {
-      // Update existing item
       const dataToUpdate: any = { title, description };
       if (imageUrl && publicId) {
         dataToUpdate.imageUrl = imageUrl;
         dataToUpdate.publicId = publicId;
-        // Delete old image from Cloudinary
         await deleteImage(oldPublicId as string);
       }
 
@@ -190,7 +184,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// ✅ OPTIONS Request: Handle CORS preflight
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }

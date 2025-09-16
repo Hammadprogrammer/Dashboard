@@ -18,7 +18,7 @@ export async function GET() {
 
     return NextResponse.json(packages, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ GET /api/umrah error:", error.message);
+    console.error("GET /api/umrah error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch packages", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -56,20 +56,19 @@ export async function POST(req: NextRequest) {
     const isActive = isActiveStr === "true";
     const normalizedCategory = category.toLowerCase();
 
-    // 🆕 New logic: If creating a new package, check for and delete an existing one with the same category.
     if (!id) {
       const existingPackage = await prisma.umrahPackage.findFirst({
         where: { category: normalizedCategory },
       });
 
       if (existingPackage) {
-        console.log(`⚠️ Existing package found for category '${normalizedCategory}'. Deleting old one.`);
+        console.log(`Existing package found for category '${normalizedCategory}'. Deleting old one.`);
         if (existingPackage.publicId) {
           try {
             await cloudinary.uploader.destroy(existingPackage.publicId);
-            console.log("🗑️ Old image deleted from Cloudinary:", existingPackage.publicId);
+            console.log("Old image deleted from Cloudinary:", existingPackage.publicId);
           } catch (err: any) {
-            console.error("❌ Failed to delete old image from Cloudinary:", err.message);
+            console.error("Failed to delete old image from Cloudinary:", err.message);
           }
         }
         await prisma.umrahPackage.delete({
@@ -82,7 +81,6 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // ✅ If it's an update and a new file is uploaded, delete the old one.
     if (id && file) {
       const existing = await prisma.umrahPackage.findUnique({
         where: { id: parseInt(id) },
@@ -93,12 +91,11 @@ export async function POST(req: NextRequest) {
           await cloudinary.uploader.destroy(existing.publicId);
           console.log("🗑️ Old image deleted from Cloudinary:", existing.publicId);
         } catch (err: any) {
-          console.error("❌ Failed to delete old image from Cloudinary:", err.message);
+          console.error("Failed to delete old image from Cloudinary:", err.message);
         }
       }
     }
 
-    // ✅ Upload the new file to Cloudinary (only if a new file is provided).
     if (file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -107,7 +104,7 @@ export async function POST(req: NextRequest) {
         const uploadRes: any = await new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
             {
-              folder: "umrah-packages", // ✅ Updated folder name
+              folder: "umrah-packages", 
               width: 400,
               height: 600,
               crop: "fill",
@@ -123,7 +120,7 @@ export async function POST(req: NextRequest) {
         imageUrl = uploadRes.secure_url;
         publicId = uploadRes.public_id;
       } catch (err: any) {
-        console.error("❌ Cloudinary upload failed:", err.message);
+        console.error("Cloudinary upload failed:", err.message);
         return NextResponse.json(
           { error: "Image upload failed", details: err.message },
           { status: 500, headers: corsHeaders }
@@ -133,7 +130,6 @@ export async function POST(req: NextRequest) {
 
     let saved;
     if (id) {
-      // ✅ Update an existing package.
       saved = await prisma.umrahPackage.update({
         where: { id: parseInt(id) },
         data: {
@@ -145,7 +141,6 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      // ✅ Create a new package.
       saved = await prisma.umrahPackage.create({
         data: {
           title,
@@ -160,7 +155,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST /api/umrah error:", error.message);
+    console.error("POST /api/umrah error:", error.message);
     return NextResponse.json(
       { error: "Failed to save package", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -209,7 +204,6 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // First, find the package to get the public ID for Cloudinary.
     const existing = await prisma.umrahPackage.findUnique({
       where: { id: parseInt(id) },
     });
@@ -221,13 +215,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // ✅ If a Cloudinary image exists, delete it.
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
         console.log("🗑️ Image deleted from Cloudinary:", existing.publicId);
       } catch (err: any) {
-        console.error("❌ Cloudinary delete failed:", err.message);
+        console.error("Cloudinary delete failed:", err.message);
       }
     }
 
@@ -237,11 +230,11 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "🗑️ Package deleted successfully" },
+      { message: "Package deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ DELETE /api/umrah error:", error.message);
+    console.error("DELETE /api/umrah error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete package", details: error.message },
       { status: 500, headers: corsHeaders }

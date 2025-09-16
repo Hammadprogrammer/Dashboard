@@ -57,7 +57,6 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let imageId: string | undefined;
 
-    // Upload image to Cloudinary if file exists
     if (imageFile) {
       const buffer = Buffer.from(await imageFile.arrayBuffer());
       const uploadRes: any = await new Promise((resolve, reject) => {
@@ -74,7 +73,6 @@ export async function POST(req: NextRequest) {
 
     let savedTestimonial;
     if (id) {
-      // Update existing testimonial
       const existing = await prisma.testimonial.findUnique({
         where: { id: parseInt(id) },
       });
@@ -86,7 +84,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Delete old image if a new one is uploaded
       if (imageFile && existing.imageId) {
         await cloudinary.uploader.destroy(existing.imageId);
       }
@@ -103,7 +100,6 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      // Create new testimonial
       if (!imageFile) {
         return NextResponse.json(
           { error: "Image is required for new entry" },
@@ -133,7 +129,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE a testimonial
+// DELETE  testimonial
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
