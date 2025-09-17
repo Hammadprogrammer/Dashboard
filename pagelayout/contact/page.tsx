@@ -4,9 +4,10 @@ import { useState, FormEvent } from 'react';
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
     name: '',
+    fatherName: '',
+    nic: '',
+    category: '',
     email: '',
     phone: '',
   });
@@ -36,7 +37,14 @@ export default function ContactForm() {
       setMessage(result.message);
 
       if (response.ok) {
-        setFormData({ title: '', description: '', name: '', email: '', phone: '' });
+        setFormData({ 
+          name: '', 
+          fatherName: '', 
+          nic: '', 
+          category: '', 
+          email: '', 
+          phone: '', 
+        });
       }
     } catch (error) {
       setMessage('An error occurred. Please try again.');
@@ -49,36 +57,48 @@ export default function ContactForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto p-4 border rounded-md shadow-lg">
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          type="text"
-          name="title"
-          id="title"
-          value={formData.title}
-          onChange={handleChange}
-          required
-          className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
-        <textarea
-          name="description"
-          id="description"
-          value={formData.description}
-          onChange={handleChange}
-          required
-          rows={4}
-          className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
-      <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
         <input
           type="text"
           name="name"
           id="name"
           value={formData.name}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label htmlFor="fatherName" className="block text-sm font-medium text-gray-700">Father's Name</label>
+        <input
+          type="text"
+          name="fatherName"
+          id="fatherName"
+          value={formData.fatherName}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label htmlFor="nic" className="block text-sm font-medium text-gray-700">NIC</label>
+        <input
+          type="text"
+          name="nic"
+          id="nic"
+          value={formData.nic}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      <div>
+        <label htmlFor="category" className="block text-sm font-medium text-gray-700">Category</label>
+        <input
+          type="text"
+          name="category"
+          id="category"
+          value={formData.category}
           onChange={handleChange}
           required
           className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

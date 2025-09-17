@@ -9,7 +9,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -23,9 +22,16 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
-    const { title, description, name, email, phone } = await request.json();
+    const { 
+      name, 
+      fatherName, 
+      nic, 
+      category, 
+      email, 
+      phone, 
+    } = await request.json();
 
-    if (!name || !email || !title || !description) {
+    if (!name || !fatherName || !nic || !category || !email || !phone) {
       return NextResponse.json(
         { message: "Missing required fields" },
         { status: 400, headers: corsHeaders }
@@ -35,12 +41,13 @@ export async function POST(request: Request) {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
-      subject: `New Contact Form Submission: ${title}`,
+      subject: `New Contact Form Submission from ${name}`,
       html: `
         <h2>New Message from Contact Form</h2>
-        <p><strong>Title:</strong> ${title}</p>
-        <p><strong>Description:</strong> ${description}</p>
         <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Father's Name:</strong> ${fatherName}</p>
+        <p><strong>NIC:</strong> ${nic}</p>
+        <p><strong>Category:</strong> ${category}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Phone:</strong> ${phone}</p>
       `,
