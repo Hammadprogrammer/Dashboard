@@ -116,7 +116,7 @@ const Navbar = () => {
               About Us
             </Link>
             <Link
-              href="/knowledge"
+              href="/Knowledge"
               onClick={() => setIsOpen(false)}
               className="text-white md:text-inherit"
             >

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import Navbar from "../sharecomponent/navbar/navbar";
 import HajjDashboardPage from "../pagelayout/hajj/page";
 import UmrahDashboardPage from "../pagelayout/umrah/page";
 import DomesticDashboardPage from "../pagelayout/domestic/page";
@@ -34,7 +33,6 @@ const Page = () => {
 
   return (
     <div>
-      <Navbar />
       <HajjDashboardPage />
       <UmrahDashboardPage />
       <DomesticDashboardPage />
