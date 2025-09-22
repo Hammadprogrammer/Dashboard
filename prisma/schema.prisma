@@ -1,13 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
-
 
 datasource db {
   provider = "postgresql"
@@ -19,8 +12,8 @@ model User {
   name      String
   email     String    @unique
   password  String
-  bookings  Booking[] // relation to Booking
   createdAt DateTime  @default(now())
+  bookings  Booking[]
 }
 
 model Trip {
@@ -30,21 +23,19 @@ model Trip {
   price       Float
   startDate   DateTime
   endDate     DateTime
-  bookings    Booking[] // relation to Booking
   createdAt   DateTime  @default(now())
+  bookings    Booking[]
 }
 
 model Booking {
   id        Int      @id @default(autoincrement())
-  user      User     @relation(fields: [userId], references: [id])
   userId    Int
-  trip      Trip     @relation(fields: [tripId], references: [id])
   tripId    Int
   status    String   @default("pending")
   createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
-
-
 
 model HajjPackage {
   id        Int      @id @default(autoincrement())
@@ -80,25 +71,23 @@ model DomesticPackage {
 }
 
 model InternationalTour {
-  id            Int            @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   title         String
   description   String
-  isActive      Boolean        @default(true)
-  backgroundUrl String?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
   backgroundId  String?
-  createdAt     DateTime       @default(now())
+  backgroundUrl String?
   sliderImages  SliderImage[]
 }
 
 model SliderImage {
-  id       Int    @id @default(autoincrement())
+  id       Int               @id @default(autoincrement())
   url      String
   publicId String
   tourId   Int
   tour     InternationalTour @relation(fields: [tourId], references: [id], onDelete: Cascade)
 }
-
-// prisma/schema.prisma
 
 model WhyChooseUsItem {
   id          Int      @id @default(autoincrement())
@@ -106,19 +95,19 @@ model WhyChooseUsItem {
   description String
   imageUrl    String
   publicId    String   @unique
-  isActive    Boolean  @default(true) // ✅ This is the new field
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
 }
 
 model UmrahService {
-  id          Int           @id @default(autoincrement())
-  title       String
-  description String
-  isActive    Boolean       @default(true)
-  heroImage   String?       // We'll use this for a main, single image
-  heroImageId String?
-  createdAt   DateTime      @default(now())
+  id            Int            @id @default(autoincrement())
+  title         String
+  description   String
+  isActive      Boolean        @default(true)
+  heroImage     String?
+  heroImageId   String?
+  createdAt     DateTime       @default(now())
   serviceImages ServiceImage[]
 }
 
@@ -131,22 +120,22 @@ model ServiceImage {
 }
 
 model CustomPilgrimage {
-  id          Int           @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   title       String
   subtitle1   String?
   subtitle2   String?
   subtitle3   String?
   subtitle4   String?
-  isActive    Boolean       @default(true)
-  heroImage   String?       // The main background image
+  isActive    Boolean  @default(true)
+  heroImage   String?
   heroImageId String?
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Testimonial {
   id          Int      @id @default(autoincrement())
   rating      Float
-  description String   @db.Text
+  description String
   image       String
   imageId     String
   name        String
@@ -154,12 +143,14 @@ model Testimonial {
   createdAt   DateTime @default(now())
 }
 
-model Contact {
+
+model PdfsItem {
   id          Int      @id @default(autoincrement())
   title       String
   description String
-  name        String
-  email       String
-  phone       String
+  fileUrl     String
+  publicId    String   @unique
+  isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

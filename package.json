@@ -22,9 +22,11 @@
     "jsonwebtoken": "^9.0.2",
     "next": "15.4.6",
     "nodemailer": "^7.0.6",
+    "pdfjs-dist": "^5.4.149",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-icons": "^5.5.0",
+    "react-pdf": "^10.1.0",
     "react-slick": "^0.31.0",
     "sass": "^1.90.0",
     "slick-carousel": "^1.8.1"
@@ -36,6 +38,7 @@
     "@types/nodemailer": "^7.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.36.0",
     "prisma": "^6.15.0",
     "tailwindcss": "^4",
     "typescript": "^5"
