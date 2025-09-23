@@ -53,18 +53,18 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     const oldPublicId = formData.get("oldPublicId") as string | null;
 
-    if (!title || !description) {
-      return NextResponse.json(
-        { error: "Title and description are required" },
-        { status: 400, headers: corsHeaders }
-      );
+    if (!title && !description && (!file || file.size === 0)) {
+        return NextResponse.json(
+            { error: "Please provide a title, description, or file." },
+            { status: 400, headers: corsHeaders }
+        );
     }
 
     let fileUrl: string | null = null;
     let publicId: string | null = null;
 
-    // Upload file if given
-    if (file) {
+    // Upload file ONLY if it exists and has content
+    if (file && file.size > 0) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
@@ -90,6 +90,11 @@ export async function POST(request: NextRequest) {
         dataToUpdate.fileUrl = fileUrl;
         dataToUpdate.publicId = publicId;
         if (oldPublicId) await deleteFile(oldPublicId);
+      } else if (file === null) {
+        // Handle case where user wants to remove the file
+        dataToUpdate.fileUrl = null;
+        dataToUpdate.publicId = null;
+        if (oldPublicId) await deleteFile(oldPublicId);
       }
 
       const updatedItem = await prisma.knowledge.update({
@@ -100,13 +105,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
     } else {
       // New item
-      if (!fileUrl || !publicId) {
-        return NextResponse.json(
-          { error: "File is required for a new item" },
-          { status: 400, headers: corsHeaders }
-        );
-      }
-
       const newItem = await prisma.knowledge.create({
         data: {
           title,
@@ -152,8 +150,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await deleteFile(itemToDelete.publicId);
-
+    if (itemToDelete.publicId) {
+       await deleteFile(itemToDelete.publicId);
+    }
+   
     await prisma.knowledge.delete({
       where: { id: parseInt(id, 10) },
     });

@@ -145,12 +145,12 @@ model Testimonial {
 
 
 model Knowledge {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  fileUrl     String
-  publicId    String   @unique
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+id          Int      @id @default(autoincrement())
+title       String
+description String
+fileUrl     String?
+publicId    String?   @unique
+isActive    Boolean  @default(true)
+createdAt   DateTime @default(now())
+updatedAt   DateTime @updatedAt
 }

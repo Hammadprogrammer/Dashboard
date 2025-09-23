@@ -9,8 +9,8 @@ interface KnowledgeItem {
   id: number;
   title: string;
   description: string;
-  fileUrl: string;
-  publicId: string;
+  fileUrl: string | null;
+  publicId: string | null;
   isActive: boolean;
 }
 
@@ -74,11 +74,8 @@ export default function KnowledgeDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      return showModal("⚠️ Title and description are required", "warning");
-    }
-    if (!editingId && !file) {
-      return showModal("⚠️ A file is required", "warning");
+    if (!title.trim() && !description.trim() && !file) {
+      return showModal("⚠️ Please provide a title, description, or file.", "warning");
     }
     setIsProcessing(true);
     const formData = new FormData();
@@ -91,7 +88,9 @@ export default function KnowledgeDashboard() {
         formData.append("oldPublicId", publicId as string);
       }
     } else {
-      formData.append("file", file as File);
+      if (file) {
+        formData.append("file", file as File);
+      }
     }
     try {
       const res = await fetch("/api/knowledge", {
@@ -187,14 +186,14 @@ export default function KnowledgeDashboard() {
       >
         <input
           type="text"
-          placeholder="Title"
+          placeholder="Title (optional)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
           disabled={isProcessing}
         />
         <textarea
-          placeholder="Description"
+          placeholder="Description (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
@@ -244,14 +243,16 @@ export default function KnowledgeDashboard() {
             >
               <div className="flex flex-col items-center justify-center mb-4">
                 <DocumentTextIcon className="w-20 h-20 text-yellow-500" />
-                <a
-                  href={item.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 text-yellow-500 hover:text-yellow-400 text-sm font-medium transition-colors"
-                >
-                  View File
-                </a>
+                {item.fileUrl && (
+                  <a
+                    href={item.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 text-yellow-500 hover:text-yellow-400 text-sm font-medium transition-colors"
+                  >
+                    View File
+                  </a>
+                )}
               </div>
               
               <h2 className="font-bold text-lg text-yellow-400 mb-1">{item.title}</h2>
