@@ -1,25 +1,21 @@
 "use client";
-
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   DocumentTextIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  LinkIcon,
 } from "@heroicons/react/24/solid";
 
-interface PdfsItem {
+interface KnowledgeItem {
   id: number;
   title: string;
   description: string;
   fileUrl: string;
   publicId: string;
-  isPublished: boolean;
+  isActive: boolean;
 }
 
-export default function PdfsDashboard() {
-  const [items, setItems] = useState<PdfsItem[]>([]);
+export default function KnowledgeDashboard() {
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -41,10 +37,7 @@ export default function PdfsDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const showModal = (
-    msg: string,
-    type: "success" | "error" | "warning"
-  ) => {
+  const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
@@ -53,13 +46,13 @@ export default function PdfsDashboard() {
   const fetchItems = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/pdfs");
+      const res = await fetch("/api/knowledge");
       if (!res.ok) throw new Error("Failed to fetch items");
       const data = await res.json();
       setItems(data);
     } catch (err) {
       console.error("❌ Fetch Error:", err);
-      showModal("⚠️ Error fetching items", "error");
+      showModal("⚠️ Error fetching knowledge items", "error");
     } finally {
       setIsLoading(false);
     }
@@ -85,14 +78,12 @@ export default function PdfsDashboard() {
       return showModal("⚠️ Title and description are required", "warning");
     }
     if (!editingId && !file) {
-      return showModal("⚠️ PDF file is required", "warning");
+      return showModal("⚠️ A file is required", "warning");
     }
-
     setIsProcessing(true);
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
-
     if (editingId) {
       formData.append("id", String(editingId));
       if (file) {
@@ -102,27 +93,25 @@ export default function PdfsDashboard() {
     } else {
       formData.append("file", file as File);
     }
-
     try {
-      const res = await fetch("/api/pdfs", {
+      const res = await fetch("/api/knowledge", {
         method: "POST",
         body: formData,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
-
-      showModal(editingId ? "✅ PDF updated!" : "✅ PDF added!", "success");
+      showModal(editingId ? "✅ File updated!" : "✅ File added!", "success");
       resetForm();
       fetchItems();
     } catch (err) {
       console.error("❌ Save Error:", err);
-      showModal("⚠️ Error saving PDF", "error");
+      showModal("⚠️ Error saving file", "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleEdit = (item: PdfsItem) => {
+  const handleEdit = (item: KnowledgeItem) => {
     setEditingId(item.id);
     setTitle(item.title);
     setDescription(item.description);
@@ -142,27 +131,29 @@ export default function PdfsDashboard() {
     if (!deleteId) return;
     setIsProcessing(true);
     try {
-      const res = await fetch(`/api/pdfs?id=${deleteId}`, { method: "DELETE" });
+      const res = await fetch(`/api/knowledge?id=${deleteId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("Failed to delete");
-      showModal("🗑️ PDF deleted!", "success");
+      showModal("🗑️ File deleted!", "success");
       setDeleteId(null);
       fetchItems();
     } catch (err) {
       console.error("❌ Delete Error:", err);
-      showModal("⚠️ Could not delete PDF", "error");
+      showModal("⚠️ Could not delete file", "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
     }
   };
 
-  const togglePublished = async (id: number, currentStatus: boolean) => {
+  const toggleActive = async (id: number, currentStatus: boolean) => {
     setIsProcessing(true);
     try {
-      const res = await fetch("/api/pdfs", {
+      const res = await fetch("/api/knowledge", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isPublished: !currentStatus }),
+        body: JSON.stringify({ id, isActive: !currentStatus }),
       });
       if (!res.ok) throw new Error("Failed to toggle status");
       showModal("✅ Status updated!", "success");
@@ -179,15 +170,15 @@ export default function PdfsDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        📄 PDF Dashboard
+      <h1 className="text-3xl font-bold mb-6 text-center text-yellow-500 flex items-center justify-center">
+        <DocumentTextIcon className="h-8 w-8 mr-2" /> Knowledge Dashboard
       </h1>
 
-      {isProcessing || isLoading ? (
+      {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
-      ) : null}
+      )}
 
       <form
         onSubmit={handleSubmit}
@@ -218,22 +209,23 @@ export default function PdfsDashboard() {
           disabled={isProcessing}
           className="border border-gray-700 p-2 w-full rounded bg-black text-white"
         />
+
         {file && <p className="text-sm text-gray-300">📂 {file.name}</p>}
 
         <div className="flex gap-4">
           <button
             type="submit"
             disabled={isProcessing}
-            className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
+            className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50 transition-colors"
           >
-            {isProcessing ? "Processing..." : editingId ? "Update PDF" : "Save PDF"}
+            {isProcessing ? "Processing..." : editingId ? "Update File" : "Save File"}
           </button>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
               disabled={isProcessing}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
+              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
@@ -242,63 +234,64 @@ export default function PdfsDashboard() {
       </form>
 
       {!isLoading && items.length === 0 ? (
-        <p className="text-center text-gray-500">No PDFs uploaded yet.</p>
+        <p className="text-center text-gray-500">No knowledge items uploaded yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
             <div
               key={item.id}
-              className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
+              className="bg-gray-900 text-white rounded-lg shadow-lg p-6 flex flex-col"
             >
-              <div className="w-full h-56 flex items-center justify-center mb-2 bg-gray-800 rounded-lg overflow-hidden">
-                <DocumentTextIcon className="w-20 h-20 text-red-500" />
-              </div>
-
-              <h2 className="font-bold text-lg">{item.title}</h2>
-              <p className="text-gray-300 mb-3 line-clamp-3">
-                {item.description}
-              </p>
-
-              <div className="flex justify-between gap-2 mt-auto">
+              <div className="flex flex-col items-center justify-center mb-4">
+                <DocumentTextIcon className="w-20 h-20 text-yellow-500" />
                 <a
                   href={item.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white flex items-center disabled:opacity-50"
+                  className="mt-2 text-yellow-500 hover:text-yellow-400 text-sm font-medium transition-colors"
                 >
-                  <LinkIcon className="h-4 w-4 mr-1" /> View
+                  View File
                 </a>
+              </div>
+              
+              <h2 className="font-bold text-lg text-yellow-400 mb-1">{item.title}</h2>
+              <p className="text-gray-400 mb-4 line-clamp-3">{item.description}</p>
+              
+              <div className="flex justify-between gap-2 mt-auto">
                 <button
-                  onClick={() => togglePublished(item.id, item.isPublished)}
+                  onClick={() => toggleActive(item.id, item.isActive)}
                   disabled={isAnyActionDisabled}
-                  className={`px-4 py-1 rounded disabled:opacity-50 ${
-                    item.isPublished
-                      ? "bg-green-500 hover:bg-green-600"
-                      : "bg-red-500 hover:bg-red-600"
+                  className={`px-4 py-1 rounded-full text-sm font-semibold disabled:opacity-50 transition-colors ${
+                    item.isActive
+                      ? "bg-green-500 hover:bg-green-600 text-black"
+                      : "bg-red-500 hover:bg-red-600 text-white"
                   }`}
                 >
-                  {item.isPublished ? "Published ✅" : "Unpublished ❌"}
+                  {item.isActive ? "Active" : "Inactive"}
                 </button>
-                <button
-                  onClick={() => handleEdit(item)}
-                  disabled={isAnyActionDisabled}
-                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                >
-                  <PencilSquareIcon className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => confirmDelete(item.id)}
-                  disabled={isAnyActionDisabled}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    disabled={isAnyActionDisabled}
+                    className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => confirmDelete(item.id)}
+                    disabled={isAnyActionDisabled}
+                    className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* --- MODALS --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -307,18 +300,18 @@ export default function PdfsDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-gray-800 text-white">
               <Dialog.Title
                 className={`text-lg font-bold ${
-                  modalType === "success" ? "text-green-600" : "text-red-600"
+                  modalType === "success" ? "text-green-500" : "text-red-500"
                 }`}
               >
                 {modalType === "success" ? "Success 🎉" : "Error ❌"}
               </Dialog.Title>
-              <p className="mt-2">{modalMessage}</p>
+              <p className="mt-2 text-gray-300">{modalMessage}</p>
               <div className="mt-4">
                 <button
-                  className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-700 px-4 py-2 rounded-lg hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsModalOpen(false)}
                 >
                   OK
@@ -337,23 +330,23 @@ export default function PdfsDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
-              <Dialog.Title className="text-lg font-bold text-red-600">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-gray-800 text-white">
+              <Dialog.Title className="text-lg font-bold text-red-500">
                 Confirm Delete
               </Dialog.Title>
-              <p className="mt-2">
-                Are you sure you want to delete this PDF?
+              <p className="mt-2 text-gray-300">
+                Are you sure you want to delete this file?
               </p>
               <div className="mt-4 flex justify-center gap-4">
                 <button
-                  className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  className="bg-gray-700 px-4 py-2 rounded-lg hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsDeleteOpen(false)}
                   disabled={isProcessing}
                 >
                   Cancel
                 </button>
                 <button
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
                   onClick={handleDelete}
                   disabled={isProcessing}
                 >

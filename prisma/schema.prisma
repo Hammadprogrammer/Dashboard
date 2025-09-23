@@ -144,13 +144,13 @@ model Testimonial {
 }
 
 
-model PdfsItem {
+model Knowledge {
   id          Int      @id @default(autoincrement())
   title       String
   description String
   fileUrl     String
   publicId    String   @unique
-  isPublished Boolean  @default(true)
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

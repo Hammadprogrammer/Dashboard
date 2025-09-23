@@ -27,44 +27,15 @@ const deleteFile = async (publicId: string) => {
   }
 };
 
-// GET: Fetch all PDFs or a single PDF for download
+// GET: Fetch all Knowledge items
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    const download = searchParams.get("download");
-
-    if (id && download) {
-      // Handle file download
-      const item = await prisma.pdfsItem.findUnique({
-        where: { id: parseInt(id, 10) },
-      });
-
-      if (!item) {
-        return NextResponse.json({ error: "File not found" }, { status: 404, headers: corsHeaders });
-      }
-
-      const fileRes = await fetch(item.fileUrl);
-      if (!fileRes.ok) {
-        throw new Error("Failed to fetch file from Cloudinary");
-      }
-
-      const blob = await fileRes.blob();
-      const headers = new Headers({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${item.title}.pdf"`,
-      });
-
-      return new NextResponse(blob, { status: 200, headers });
-    } else {
-      // Fetch all PDFs
-      const items = await prisma.pdfsItem.findMany({
-        orderBy: { createdAt: "asc" },
-      });
-      return NextResponse.json(items, { status: 200, headers: corsHeaders });
-    }
+    const items = await prisma.knowledge.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+    return NextResponse.json(items, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("Failed to fetch PDF items:", error);
+    console.error("Failed to fetch knowledge items:", error);
     return NextResponse.json(
       { error: "Failed to fetch items" },
       { status: 500, headers: corsHeaders }
@@ -72,7 +43,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Add or Update PDF
+// POST: Add or Update Knowledge item
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -96,10 +67,9 @@ export async function POST(request: NextRequest) {
     if (file) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-
       const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: "pdf_files", resource_type: "raw" },
+          { folder: "knowledge_files", resource_type: "raw" },
           (error, result) => {
             if (error || !result) {
               return reject(error || new Error("Upload failed"));
@@ -109,7 +79,6 @@ export async function POST(request: NextRequest) {
         );
         stream.end(buffer);
       });
-
       fileUrl = uploadResult.secure_url;
       publicId = uploadResult.public_id;
     }
@@ -117,42 +86,41 @@ export async function POST(request: NextRequest) {
     if (id) {
       // Update existing
       const dataToUpdate: any = { title, description };
-
       if (fileUrl && publicId) {
         dataToUpdate.fileUrl = fileUrl;
         dataToUpdate.publicId = publicId;
         if (oldPublicId) await deleteFile(oldPublicId);
       }
 
-      const updatedItem = await prisma.pdfsItem.update({
+      const updatedItem = await prisma.knowledge.update({
         where: { id: parseInt(id, 10) },
         data: dataToUpdate,
       });
 
       return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
     } else {
-      // New PDF
+      // New item
       if (!fileUrl || !publicId) {
         return NextResponse.json(
-          { error: "PDF file is required for a new item" },
+          { error: "File is required for a new item" },
           { status: 400, headers: corsHeaders }
         );
       }
 
-      const newItem = await prisma.pdfsItem.create({
+      const newItem = await prisma.knowledge.create({
         data: {
           title,
           description,
           fileUrl,
           publicId,
-          isPublished: true,
+          isActive: true,
         },
       });
 
       return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
     }
   } catch (error) {
-    console.error("Failed to save PDF item:", error);
+    console.error("Failed to save knowledge item:", error);
     return NextResponse.json(
       { error: "Failed to save item" },
       { status: 500, headers: corsHeaders }
@@ -173,7 +141,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const itemToDelete = await prisma.pdfsItem.findUnique({
+    const itemToDelete = await prisma.knowledge.findUnique({
       where: { id: parseInt(id, 10) },
     });
 
@@ -186,7 +154,7 @@ export async function DELETE(request: NextRequest) {
 
     await deleteFile(itemToDelete.publicId);
 
-    await prisma.pdfsItem.delete({
+    await prisma.knowledge.delete({
       where: { id: parseInt(id, 10) },
     });
 
@@ -195,7 +163,7 @@ export async function DELETE(request: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {
-    console.error("Failed to delete PDF item:", error);
+    console.error("Failed to delete knowledge item:", error);
     return NextResponse.json(
       { error: "Failed to delete item" },
       { status: 500, headers: corsHeaders }
@@ -208,7 +176,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const id = Number(body.id);
-    const isPublished = Boolean(body.isPublished);
+    const isActive = Boolean(body.isActive);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -217,14 +185,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updatedItem = await prisma.pdfsItem.update({
+    const updatedItem = await prisma.knowledge.update({
       where: { id },
-      data: { isPublished },
+      data: { isActive },
     });
 
     return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("Failed to toggle published status:", error);
+    console.error("Failed to toggle active status:", error);
     return NextResponse.json(
       { error: "Failed to update status" },
       { status: 500, headers: corsHeaders }
