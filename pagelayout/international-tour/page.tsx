@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link";
 
 interface SliderImage {
   id: number;
@@ -221,7 +222,7 @@ export default function InternationalTourDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">🌍 International Tours</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center" id="international-tour">🌍 International Tours</h1>
 
       {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
@@ -333,6 +334,7 @@ export default function InternationalTourDashboard() {
                       className="w-full h-56 object-cover rounded"
                     />
                     <div className="flex justify-between gap-2 mt-4">
+                      <Link href="#international-tour">
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -340,6 +342,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);
@@ -390,6 +393,7 @@ export default function InternationalTourDashboard() {
                       ))}
                     </div>
                     <div className="flex justify-between gap-2 mt-4">
+                       <Link href="#international-tour">
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -397,6 +401,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);

@@ -20,7 +20,7 @@ const corsHeaders = {
 const deleteFile = async (publicId: string) => {
   if (publicId) {
     try {
-      await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+      await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
     } catch (err) {
       console.error("Failed to delete file from Cloudinary:", err);
     }
@@ -28,7 +28,7 @@ const deleteFile = async (publicId: string) => {
 };
 
 // GET: Fetch all Knowledge items
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const items = await prisma.knowledge.findMany({
       orderBy: { createdAt: "asc" },
@@ -54,22 +54,26 @@ export async function POST(request: NextRequest) {
     const oldPublicId = formData.get("oldPublicId") as string | null;
 
     if (!title && !description && (!file || file.size === 0)) {
-        return NextResponse.json(
-            { error: "Please provide a title, description, or file." },
-            { status: 400, headers: corsHeaders }
-        );
+      return NextResponse.json(
+        { error: "Please provide a title, description, or file." },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     let fileUrl: string | null = null;
     let publicId: string | null = null;
 
-    // Upload file ONLY if it exists and has content
+    // ✅ Upload PDF file only if exists
     if (file && file.size > 0) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: "knowledge_files", resource_type: "raw" },
+          {
+            folder: "knowledge_files",
+            resource_type: "auto", // ✅ auto-detect (keeps PDF as PDF)
+            format: "pdf",         // ✅ force extension to .pdf
+          },
           (error, result) => {
             if (error || !result) {
               return reject(error || new Error("Upload failed"));
@@ -90,8 +94,7 @@ export async function POST(request: NextRequest) {
         dataToUpdate.fileUrl = fileUrl;
         dataToUpdate.publicId = publicId;
         if (oldPublicId) await deleteFile(oldPublicId);
-      } else if (file === null) {
-        // Handle case where user wants to remove the file
+      } else if (file === null && formData.get("removeFile") === "true") {
         dataToUpdate.fileUrl = null;
         dataToUpdate.publicId = null;
         if (oldPublicId) await deleteFile(oldPublicId);
@@ -151,9 +154,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (itemToDelete.publicId) {
-       await deleteFile(itemToDelete.publicId);
+      await deleteFile(itemToDelete.publicId);
     }
-   
+
     await prisma.knowledge.delete({
       where: { id: parseInt(id, 10) },
     });

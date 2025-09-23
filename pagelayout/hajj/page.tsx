@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link";
 
 interface Package {
   id: number;
@@ -167,7 +168,7 @@ export default function HajjDashboardPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto mt-15">
-      <h1 className="text-3xl font-bold mb-6 text-center">
+      <h1 className="text-3xl font-bold mb-6 text-center" id="hajj">
         🕋 Hajj Packages Dashboard
       </h1>
 
@@ -323,6 +324,7 @@ export default function HajjDashboardPage() {
                       {pkg.isActive ? "Active ✅" : "Inactive ❌"}
                     </button>
 
+                   <Link href="#hajj">
                     <button
                       onClick={() => {
                         setId(pkg.id.toString());
@@ -336,6 +338,7 @@ export default function HajjDashboardPage() {
                     >
                       Edit
                     </button>
+                    </Link>
 
                     <button
                       onClick={() => confirmDelete(pkg.id)}
