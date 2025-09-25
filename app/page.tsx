@@ -11,7 +11,7 @@ import WhyChooseUsDashboard from "../pagelayout/why-choose-us/page";
 import UmrahServiceDashboard from "../pagelayout/umrah-service/page";
 import CustomPilgrimageDashboard from "../pagelayout/custom-pilgrimage/page";
 import TestimonialDashboard from "../pagelayout/testimonials/page";
-import ContactForm from "@/pagelayout/contact/page";
+// import ContactForm from "@/pagelayout/contact/page";
 
 const Page = () => {
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ const Page = () => {
       <UmrahServiceDashboard/>
       <CustomPilgrimageDashboard/>
       <TestimonialDashboard/>
-      <ContactForm/>
+      {/* <ContactForm/> */}
 
     </div>
   );

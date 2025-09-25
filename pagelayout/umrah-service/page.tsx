@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link";
 
 interface ServiceImage {
   id: number;
@@ -27,6 +28,10 @@ export default function UmrahServiceDashboard() {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // --- New state for displaying current images in edit mode ---
+  const [currentHeroImage, setCurrentHeroImage] = useState<string | undefined>(undefined);
+  const [currentServiceImages, setCurrentServiceImages] = useState<ServiceImage[]>([]);
+  // -----------------------------------------------------------
 
   // --- Loading States ---
   const [loading, setLoading] = useState(false);
@@ -84,6 +89,10 @@ export default function UmrahServiceDashboard() {
     setGalleryFiles([]);
     setIsActive(true);
     setEditingId(null);
+    // --- Clear current image states on reset ---
+    setCurrentHeroImage(undefined);
+    setCurrentServiceImages([]);
+    // ------------------------------------------
     setHeroKey(prev => prev + 1);
     setGalleryKey(prev => prev + 1);
   };
@@ -110,6 +119,18 @@ export default function UmrahServiceDashboard() {
       }
     }
 
+    // Validation for editing: ensure there's a file OR an existing image
+    if (editingId) {
+      if (imageType === "background" && !heroFile && !currentHeroImage) {
+        setLoading(false);
+        return showModal("⚠️ Please upload a background image or ensure one exists", "warning");
+      }
+      if (imageType === "services" && galleryFiles.length === 0 && currentServiceImages.length === 0) {
+        setLoading(false);
+        return showModal("⚠️ Please upload at least one service image or ensure one exists", "warning");
+      }
+    }
+
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
@@ -121,6 +142,8 @@ export default function UmrahServiceDashboard() {
     }
 
     // Append files based on imageType
+    // NOTE: Sending the old image URLs is NOT needed, the backend should handle updates
+    // based on the presence of a new file. If no new file is sent, the old one remains.
     if (imageType === "background" && heroFile) {
       formData.append("heroImage", heroFile);
     }
@@ -153,14 +176,28 @@ export default function UmrahServiceDashboard() {
     setTitle(service.title);
     setDescription(service.description);
     setIsActive(service.isActive);
+
+    // Set the image type and current images for display
     if (service.heroImage) {
       setImageType("background");
+      setCurrentHeroImage(service.heroImage);
+      setCurrentServiceImages([]); // Clear other image state
     } else if (service.serviceImages.length > 0) {
       setImageType("services");
+      setCurrentServiceImages(service.serviceImages);
+      setCurrentHeroImage(undefined); // Clear other image state
+    } else {
+      // Handle case with no images (unlikely based on validation, but good to be safe)
+      setImageType("background");
+      setCurrentHeroImage(undefined);
+      setCurrentServiceImages([]);
     }
-    // Clear file inputs for new selection
+
+    // Clear file inputs for *new* selection
     setHeroFile(null);
     setGalleryFiles([]);
+    setHeroKey(prev => prev + 1); // Force re-render/clear input
+    setGalleryKey(prev => prev + 1); // Force re-render/clear input
 
     // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -213,7 +250,7 @@ export default function UmrahServiceDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">🕋 Umrah Services</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center" id="umrah-service">🕋 Umrah Services</h1>
 
       {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
@@ -257,28 +294,61 @@ export default function UmrahServiceDashboard() {
         </select>
 
         {imageType === "background" && (
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-            className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={heroKey}
-            disabled={loading}
-          />
+          <div className="space-y-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+              className="border border-gray-700 p-2 w-full rounded bg-black text-white"
+              key={heroKey}
+              disabled={loading}
+            />
+            {/* --- Display Current Hero Image in Edit Mode --- */}
+            {isEditing && currentHeroImage && (
+              <div className="p-2 border border-gray-700 rounded bg-gray-800">
+                <p className="text-sm mb-2 text-gray-400">Current Background Image (Upload a new file to replace):</p>
+                <img
+                  src={currentHeroImage}
+                  alt="Current Hero Image"
+                  className="w-full h-40 object-cover rounded"
+                />
+              </div>
+            )}
+            {/* ------------------------------------------------ */}
+          </div>
         )}
 
         {imageType === "services" && (
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) =>
-              setGalleryFiles(e.target.files ? Array.from(e.target.files) : [])
-            }
-            className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={galleryKey}
-            disabled={loading}
-          />
+          <div className="space-y-2">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) =>
+                setGalleryFiles(e.target.files ? Array.from(e.target.files) : [])
+              }
+              className="border border-gray-700 p-2 w-full rounded bg-black text-white"
+              key={galleryKey}
+              disabled={loading}
+            />
+            {/* --- Display Current Service Images in Edit Mode --- */}
+            {isEditing && currentServiceImages.length > 0 && (
+              <div className="p-2 border border-gray-700 rounded bg-gray-800">
+                <p className="text-sm mb-2 text-gray-400">Current Service Images (Upload new files to add/replace):</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {currentServiceImages.map((img) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt="Service Image"
+                      className="w-full h-16 object-cover rounded"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* --------------------------------------------------- */}
+          </div>
         )}
 
         <div className="flex gap-4">
@@ -324,6 +394,7 @@ export default function UmrahServiceDashboard() {
                       className="w-full h-56 object-cover rounded"
                     />
                     <div className="flex justify-between gap-2 mt-4">
+                      <Link href="#umrah-service">
                       <button
                         onClick={() => handleEdit(service)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -331,6 +402,7 @@ export default function UmrahServiceDashboard() {
                       >
                         Edit
                       </button>
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(service.id);
@@ -381,6 +453,7 @@ export default function UmrahServiceDashboard() {
                       ))}
                     </div>
                     <div className="flex justify-between gap-2 mt-4">
+                      <Link href="#umrah-service">
                       <button
                         onClick={() => handleEdit(service)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -388,6 +461,7 @@ export default function UmrahServiceDashboard() {
                       >
                         Edit
                       </button>
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(service.id);

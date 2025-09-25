@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link";
 
 interface CustomPilgrimage {
   id: number;
@@ -24,6 +25,9 @@ export default function CustomPilgrimageDashboard() {
   const [heroFile, setHeroFile] = useState<File | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // --- New state for displaying current image in edit mode ---
+  const [currentHeroImage, setCurrentHeroImage] = useState<string | undefined>(undefined);
+  // -----------------------------------------------------------
 
   // --- Loading States ---
   const [loading, setLoading] = useState(false); 
@@ -81,6 +85,9 @@ export default function CustomPilgrimageDashboard() {
     setHeroFile(null);
     setIsActive(true);
     setEditingId(null);
+    // --- Clear current image state on reset ---
+    setCurrentHeroImage(undefined);
+    // ------------------------------------------
     setHeroKey(prev => prev + 1);
   };
 
@@ -99,6 +106,13 @@ export default function CustomPilgrimageDashboard() {
         setLoading(false);
         return showModal("⚠️ Please upload an image for a new entry", "warning");
     }
+
+    // Validation for editing: ensure there's a file OR an existing image URL
+    if (editingId && !heroFile && !currentHeroImage) {
+        setLoading(false);
+        return showModal("⚠️ Please upload a new image or ensure one exists", "warning");
+    }
+
 
     const formData = new FormData();
     formData.append("title", title);
@@ -145,9 +159,16 @@ export default function CustomPilgrimageDashboard() {
     setSubtitle3(entry.subtitle3 || "");
     setSubtitle4(entry.subtitle4 || "");
     setIsActive(entry.isActive);
+    
+    // --- Set current image state for display ---
+    setCurrentHeroImage(entry.heroImage);
+    // -------------------------------------------
+    
+    // Clear file input for new selection and force re-render
     setHeroFile(null); 
+    setHeroKey(prev => prev + 1);
 
-    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // ✅ Delete
@@ -191,9 +212,11 @@ export default function CustomPilgrimageDashboard() {
     }
   };
 
+  const isEditing = !!editingId;
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">✨ Customize Your Pilgrimage</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center" id="customize">✨ Customize Your Pilgrimage</h1>
 
       {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
@@ -206,7 +229,7 @@ export default function CustomPilgrimageDashboard() {
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
-        ref={formRef}
+        // ref={formRef}
       >
         <input
           type="text"
@@ -252,14 +275,29 @@ export default function CustomPilgrimageDashboard() {
             />
         </div>
 
-        <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-            className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={heroKey} 
-            disabled={loading}
-        />
+        <div className="space-y-2">
+            <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                className="border border-gray-700 p-2 w-full rounded bg-black text-white"
+                key={heroKey} 
+                disabled={loading}
+            />
+            {/* --- Display Current Hero Image in Edit Mode --- */}
+            {isEditing && currentHeroImage && (
+              <div className="p-2 border border-gray-700 rounded bg-gray-800">
+                <p className="text-sm mb-2 text-gray-400">Current Hero Image (Upload a new file to replace):</p>
+                <img
+                  src={currentHeroImage}
+                  alt="Current Hero Image"
+                  className="w-full h-40 object-cover rounded"
+                />
+              </div>
+            )}
+            {/* ------------------------------------------------ */}
+        </div>
+
 
         <div className="flex gap-4">
           <button
@@ -307,6 +345,7 @@ export default function CustomPilgrimageDashboard() {
                     />
                 )}
                 <div className="flex justify-between gap-2 mt-4">
+                  <Link href="#customize">
                   <button
                     onClick={() => handleEdit(entry)}
                     className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600"
@@ -314,6 +353,7 @@ export default function CustomPilgrimageDashboard() {
                   >
                     Edit
                   </button>
+                  </Link>
                   <button
                     onClick={() => {
                       setDeleteId(entry.id);

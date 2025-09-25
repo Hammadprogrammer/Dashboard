@@ -20,6 +20,9 @@ export default function TestimonialDashboard() {
   const [rating, setRating] = useState(5.0);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // --- New state for displaying current image in edit mode ---
+  const [currentImage, setCurrentImage] = useState<string | undefined>(undefined);
+  // -----------------------------------------------------------
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -66,6 +69,9 @@ export default function TestimonialDashboard() {
     setRating(5.0);
     setImageFile(null);
     setEditingId(null);
+    // --- Clear current image state on reset ---
+    setCurrentImage(undefined);
+    // ------------------------------------------
     if (imageInputRef.current) {
         imageInputRef.current.value = "";
     }
@@ -85,9 +91,16 @@ export default function TestimonialDashboard() {
       return showModal("⚠️ Rating must be between 1.0 and 5.0", "warning");
     }
 
+    // Validation for new entry
     if (!editingId && !imageFile) {
         setLoading(false);
         return showModal("⚠️ Please upload an image for a new entry", "warning");
+    }
+    
+    // Validation for editing: ensure there's a file OR an existing image URL
+    if (editingId && !imageFile && !currentImage) {
+        setLoading(false);
+        return showModal("⚠️ Please upload a new image or ensure one exists", "warning");
     }
 
     const formData = new FormData();
@@ -100,6 +113,7 @@ export default function TestimonialDashboard() {
       formData.append("id", String(editingId));
     }
 
+    // Only append file if a new file is selected
     if (imageFile) {
       formData.append("image", imageFile);
     }
@@ -129,10 +143,17 @@ export default function TestimonialDashboard() {
     setName(entry.name);
     setTitle(entry.title);
     setRating(entry.rating);
+    
+    // --- Set current image state for display ---
+    setCurrentImage(entry.image);
+    // -------------------------------------------
+    
+    // Clear file input for new selection
     setImageFile(null);
     if (imageInputRef.current) {
-        imageInputRef.current.value = "";
+        imageInputRef.current.value = ""; // Clear the visual state of the input
     }
+    
     setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -158,8 +179,10 @@ export default function TestimonialDashboard() {
     }
   };
 
+  const isEditing = !!editingId;
+
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto"> {/* 💡 Adjusted padding for smaller screens */}
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-center">What People Say</h1>
 
       {(loading || fetching) && (
@@ -168,6 +191,7 @@ export default function TestimonialDashboard() {
         </div>
       )}
 
+      {/* --- FORM --- */}
       <form
         ref={formRef}
         onSubmit={handleSubmit}
@@ -177,7 +201,7 @@ export default function TestimonialDashboard() {
           placeholder="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none" // 💡 Added resize-none class
+          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none"
           rows={4}
           disabled={loading}
         />
@@ -213,14 +237,30 @@ export default function TestimonialDashboard() {
           pattern="[0-9]*\.?[0-9]*"
         />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-          className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-          ref={imageInputRef}
-          disabled={loading}
-        />
+        {/* --- Image Input and Current Image Display --- */}
+        <div className="space-y-2">
+            <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                className="border border-gray-700 p-2 w-full rounded bg-black text-white"
+                ref={imageInputRef}
+                disabled={loading}
+            />
+            {isEditing && currentImage && (
+                <div className="p-2 border border-gray-700 rounded bg-gray-800 flex items-center">
+                    <p className="text-sm text-gray-400 mr-4">Current Image:</p>
+                    <img
+                        src={currentImage}
+                        alt="Current Testimonial Image"
+                        className="w-16 h-16 object-cover rounded-full border border-gray-600"
+                    />
+                    <p className="text-sm ml-4 text-gray-500">Upload a new file to replace.</p>
+                </div>
+            )}
+        </div>
+        {/* --------------------------------------------- */}
+
 
         <div className="flex gap-4">
           <button
@@ -253,12 +293,13 @@ export default function TestimonialDashboard() {
               key={entry.id}
               className="bg-[#24294b] text-white rounded-lg shadow-xl p-6 flex flex-col items-start gap-4"
             >
-              <div className="flex justify-between w-full items-center">
-                <p className="text-gray-300 font-light mb-4 text-sm">{entry.description}</p>
-                <span className="text-yellow-400 font-bold ml-auto text-xl">{entry.rating} ⭐</span>
+              <div className="flex justify-between w-full items-start">
+                {/* Ensure the description takes the available space */}
+                <p className="text-gray-300 font-light text-sm flex-grow pr-2">{entry.description}</p>
+                <span className="text-yellow-400 font-bold text-xl flex-shrink-0">{entry.rating} ⭐</span>
               </div>
                
-              <div className="flex items-center w-full mt-auto">
+              <div className="flex items-center w-full mt-auto pt-2 border-t border-gray-700">
                 {entry.image && (
                   <img
                     src={entry.image}

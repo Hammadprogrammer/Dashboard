@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link";
 
 interface WhyChooseUsItem {
   id: number;
@@ -174,7 +175,7 @@ export default function WhyChooseUsDashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">
+      <h1 className="text-3xl font-bold mb-6 text-center" id="why-choose-us">
         💡 Why Choose Us Dashboard
       </h1>
 
@@ -275,6 +276,7 @@ export default function WhyChooseUsDashboard() {
                 >
                   {item.isActive ? "Active ✅" : "Inactive ❌"}
                 </button>
+                <Link href="#why-choose-us">
                 <button
                   onClick={() => handleEdit(item)}
                   disabled={isAnyActionDisabled}
@@ -282,6 +284,7 @@ export default function WhyChooseUsDashboard() {
                 >
                   Edit
                 </button>
+                </Link>
                 <button
                   onClick={() => confirmDelete(item.id)}
                   disabled={isAnyActionDisabled}

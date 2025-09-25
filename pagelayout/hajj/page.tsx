@@ -331,7 +331,7 @@ export default function HajjDashboardPage() {
                         setTitle(pkg.title);
                         setPrice(pkg.price.toString());
                         setCategory(pkg.category);
-                        setPreview(pkg.imageUrl);
+                        setPreview(pkg.imageUrl); 
                       }}
                       disabled={isProcessing || !!id}
                       className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
