@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
               folder: "umrah-packages", 
               width: 400,
               height: 600,
-              // crop: "fill",
             },
             (error, result) => {
               if (error) reject(error);
