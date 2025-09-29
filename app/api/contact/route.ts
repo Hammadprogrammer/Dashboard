@@ -28,10 +28,12 @@ export async function POST(request: Request) {
       nic, 
       category, 
       email, 
-      phone, 
+      phone,
+      service,
+      message,
     } = await request.json();
 
-    if (!name || !fatherName || !nic || !category || !email || !phone) {
+    if (!name || !fatherName || !nic || !category || !email || !phone || !service || !message) {
       return NextResponse.json(
         { message: "Missing required fields" },
         { status: 400, headers: corsHeaders }
@@ -50,6 +52,8 @@ export async function POST(request: Request) {
         <p><strong>Category:</strong> ${category}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Service:</strong> ${service}</p>
+        <p><strong>Message:</strong> ${message}</p>
       `,
     };
 
