@@ -13,7 +13,6 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Check login status on load
   useEffect(() => {
     const storedLoginStatus = localStorage.getItem("isLoggedIn");
     if (storedLoginStatus === "true") {
@@ -35,7 +34,6 @@ const Navbar = () => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("token");
 
-    // ✅ Refresh the page after logout
     window.location.reload();
   };
 
@@ -101,20 +99,7 @@ const Navbar = () => {
             >
               Home
             </Link>
-            <Link
-              href="/destinations"
-              onClick={() => setIsOpen(false)}
-              className="text-white md:text-inherit"
-            >
-              Destinations
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setIsOpen(false)}
-              className="text-white md:text-inherit"
-            >
-              About Us
-            </Link>
+
             <Link
               href="/Knowledge"
               onClick={() => setIsOpen(false)}
@@ -123,7 +108,6 @@ const Navbar = () => {
               Knowledge
             </Link>
 
-            {/* Auth Buttons */}
             {!isLoggedIn ? (
               <button
                 onClick={() => {
