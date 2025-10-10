@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (existingPackage) {
-        console.log(`⚠️ Existing package found for category '${normalizedCategory}'. Deleting old one.`);
+        console.log(`Existing package found for category '${normalizedCategory}'. Deleting old one.`);
         if (existingPackage.publicId) {
           try {
             await cloudinary.uploader.destroy(existingPackage.publicId);
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       if (existing?.publicId) {
         try {
           await cloudinary.uploader.destroy(existing.publicId);
-          console.log("🗑️ Old image deleted:", existing.publicId);
+          console.log(" Old image deleted:", existing.publicId);
         } catch (err: any) {
           console.error(" Failed to delete old image:", err.message);
         }

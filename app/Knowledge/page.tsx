@@ -1,5 +1,5 @@
 import React from 'react'
-import KnowledgeDashboard from '@/pagelayout/knowledge/knowledge-pdf/pdf'
+// import KnowledgeDashboard from '@/pagelayout/knowledge/knowledge-pdf/pdf'
 import VideoDashboard from '@/pagelayout/knowledge/knowledge-videos/videos'
 
 type Props = {}
@@ -7,7 +7,7 @@ type Props = {}
 const page = (props: Props) => {
   return (
    <>
-   <KnowledgeDashboard/>
+   {/* <KnowledgeDashboard/> */}
    <VideoDashboard/>
     
    </>

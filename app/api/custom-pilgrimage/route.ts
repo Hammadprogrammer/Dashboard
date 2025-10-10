@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST error:", error.message);
+    console.error("POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save data", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -186,7 +186,7 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "🗑️ Entry deleted successfully" },
+      { message: "Entry deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
