@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       if (existing?.publicId) {
         try {
           await cloudinary.uploader.destroy(existing.publicId);
-          console.log(" Old image deleted:", existing.publicId);
+          console.log("        +  Old image deleted:", existing.publicId);
         } catch (err: any) {
           console.error(" Failed to delete old image:", err.message);
         }
