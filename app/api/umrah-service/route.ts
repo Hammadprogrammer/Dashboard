@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       const uploadRes: any = await new Promise((resolve, reject) => {
         cloudinary.uploader
           .upload_stream(
-            { folder: "umrah-services/hero", crop: "fill" },
+            { folder: "umrah-services/hero",  },
             (err, result) => (err ? reject(err) : resolve(result))
           )
           .end(buffer);
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         const uploadRes: any = await new Promise((resolve, reject) => {
           cloudinary.uploader
             .upload_stream(
-              { folder: "umrah-services/gallery", crop: "fill" },
+              { folder: "umrah-services/gallery", },
               (err, result) => (err ? reject(err) : resolve(result))
             )
             .end(buffer);
