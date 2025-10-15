@@ -109,16 +109,14 @@ export async function POST(request: NextRequest) {
       fileUrl = uploadResult.secure_url;
       publicId = uploadResult.public_id;
 
-      // Clean up old file if an update and a new file was uploaded
       if (isUpdating && oldPublicId) {
         await deleteFile(oldPublicId);
       }
     }
 
-    // --- Database Operation ---
     if (isUpdating) {
       const dataToUpdate: any = { 
-        title: title || "", // Ensure it's not null in DB
+        title: title || "", 
         description: description || "" 
       };
 
@@ -126,10 +124,6 @@ export async function POST(request: NextRequest) {
         dataToUpdate.fileUrl = fileUrl;
         dataToUpdate.publicId = publicId;
       }
-      // If updating but no new file is provided, we keep the existing fileUrl/publicId.
-      // If the user wants to remove the file, the frontend needs to send a 'removeFile' flag.
-      // NOTE: Your current frontend doesn't support file removal without replacement, 
-      // but the backend is now ready to handle replacement.
 
       const updatedItem = await prisma.knowledge.update({
         where: { id: Number(id) },
@@ -141,8 +135,7 @@ export async function POST(request: NextRequest) {
 
     // --- Create new item ---
     if (!fileUrl) {
-      // If no file was uploaded, ensure the DB fields for file are null.
-      // This allows for 'knowledge items' that are just text entries.
+
       fileUrl = null;
       publicId = null;
     }

@@ -9,8 +9,9 @@ const corsHeaders = {
 };
 
 // ---------------- GET ----------------
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // Check for 'all=true' or similar parameter if you need to distinguish client views
     const packages = await prisma.hajjPackage.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
+    // Cloudinary Upload Utility
     async function uploadToCloudinary(file: File) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -65,8 +67,10 @@ export async function POST(req: NextRequest) {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: "hajj-packages",
-            width: 400,
-            height: 600,
+            // Optimized dimensions for card display
+            width: 450,
+            height: 300,
+            crop: "fill"
           },
           (error, result) => {
             if (error) reject(error);
@@ -79,23 +83,28 @@ export async function POST(req: NextRequest) {
 
     let saved;
     if (id) {
+      // --- UPDATE OPERATION ---
+      const packageId = parseInt(id);
       const existing = await prisma.hajjPackage.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: packageId },
       });
 
       if (!existing) {
         return NextResponse.json(
-          { error: "Package not found" },
+          { error: "Package not found for update" },
           { status: 404, headers: corsHeaders }
         );
       }
 
+      // Handle file upload and old image deletion
       if (file) {
         if (existing.publicId) {
           try {
+            // Safely delete old image from Cloudinary
             await cloudinary.uploader.destroy(existing.publicId);
           } catch (err: any) {
-            console.error("❌ Old image delete failed:", err.message);
+            console.error("❌ Old image delete failed (Cloudinary):", err.message);
+            // Non-critical error: continue with upload
           }
         }
 
@@ -103,28 +112,38 @@ export async function POST(req: NextRequest) {
         imageUrl = uploadRes.secure_url;
         publicId = uploadRes.public_id;
       }
-
+      
+      // Update Prisma record
       saved = await prisma.hajjPackage.update({
-        where: { id: parseInt(id) },
+        where: { id: packageId },
         data: {
           title,
-          price,
+          price: parseFloat(price.toFixed(2)), // Ensure price is correctly formatted
           category,
           isActive,
-          ...(imageUrl ? { imageUrl, publicId } : {}),
+          // Only update image fields if a new file was uploaded
+          ...(file ? { imageUrl, publicId } : {}),
         },
       });
+
     } else {
-      if (file) {
-        const uploadRes = await uploadToCloudinary(file);
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
+      // --- CREATE OPERATION ---
+      if (!file) {
+        return NextResponse.json(
+            { error: "Image file is required for new packages" },
+            { status: 400, headers: corsHeaders }
+          );
       }
 
+      const uploadRes = await uploadToCloudinary(file);
+      imageUrl = uploadRes.secure_url;
+      publicId = uploadRes.public_id;
+      
+      // Create new Prisma record
       saved = await prisma.hajjPackage.create({
         data: {
           title,
-          price,
+          price: parseFloat(price.toFixed(2)),
           category,
           isActive,
           imageUrl: imageUrl || "",
@@ -149,16 +168,16 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, isActive } = body;
 
-    if (!id) {
+    if (!id || typeof isActive !== 'boolean') {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID and new status (isActive) are required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
     const updated = await prisma.hajjPackage.update({
       where: { id: parseInt(id) },
-      data: { isActive: Boolean(isActive) },
+      data: { isActive },
     });
 
     return NextResponse.json(updated, { headers: corsHeaders });
@@ -179,13 +198,15 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID is required for deletion" },
         { status: 400, headers: corsHeaders }
       );
     }
+    
+    const packageId = parseInt(id);
 
     const existing = await prisma.hajjPackage.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: packageId },
     });
 
     if (!existing) {
@@ -195,16 +216,19 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Delete image from Cloudinary
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
       } catch (err: any) {
-        console.error("Cloudinary delete failed:", err.message);
+        console.error("❌ Cloudinary delete failed:", err.message);
+        // Non-critical error: proceed with Prisma delete
       }
     }
 
+    // Delete record from Prisma
     await prisma.hajjPackage.delete({
-      where: { id: parseInt(id) },
+      where: { id: packageId },
     });
 
     return NextResponse.json(
@@ -212,7 +236,7 @@ export async function DELETE(req: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("DELETE /api/hajj error:", error.message);
+    console.error("❌ DELETE /api/hajj error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete package", details: error.message },
       { status: 500, headers: corsHeaders }
