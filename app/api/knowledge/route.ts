@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { v2 as cloudinary } from "cloudinary";
 
+export const runtime = "nodejs"; 
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -14,25 +16,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const deleteFile = async (publicId: string) => {
-  if (publicId) {
-    try {
-      // Use "auto" here as it works best for deleting uploaded files regardless of type
-      await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
-    } catch (err) {
-      console.error("Failed to delete file from Cloudinary:", err);
-    }
+// ✅ Helper: Delete old file safely
+const deleteFile = async (publicId: string | null) => {
+  if (!publicId) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
+  } catch (err) {
+    console.error("❌ Cloudinary delete error:", err);
   }
 };
 
+// ✅ GET: Fetch all knowledge items
 export async function GET() {
   try {
     const items = await prisma.knowledge.findMany({
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(items, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("Failed to fetch knowledge items:", error);
+    console.error("❌ Failed to fetch knowledge items:", error);
     return NextResponse.json(
       { error: "Failed to fetch items" },
       { status: 500, headers: corsHeaders }
@@ -40,18 +42,21 @@ export async function GET() {
   }
 }
 
+// ✅ POST: Add / Update knowledge item
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const id = formData.get("id") as string | null;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
+    const title = formData.get("title") as string | null;
+    const description = formData.get("description") as string | null;
     const file = formData.get("file") as File | null;
     const oldPublicId = formData.get("oldPublicId") as string | null;
+    const removeFile = formData.get("removeFile") === "true";
 
+    // ✅ Validation
     if (!title && !description && (!file || file.size === 0)) {
       return NextResponse.json(
-        { error: "Please provide a title, description, or file." },
+        { error: "Please provide title, description, or file." },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -59,70 +64,75 @@ export async function POST(request: NextRequest) {
     let fileUrl: string | null = null;
     let publicId: string | null = null;
 
+    // ✅ Upload new file (if provided)
     if (file && file.size > 0) {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "knowledge_files",
-            // UPDATED: Use "raw" resource type for proper PDF/document handling
-            resource_type: "raw", 
-            // Removed format: "pdf" as it is often redundant when using raw
-          },
-          (error, result) => {
-            if (error || !result) {
-              return reject(error || new Error("Upload failed"));
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const uploadResult = await new Promise<{ secure_url: string; public_id: string }>(
+        (resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "knowledge_files",
+              resource_type: "raw", // PDFs or docs
+            },
+            (error, result) => {
+              if (error || !result) return reject(error || new Error("Upload failed"));
+              resolve({ secure_url: result.secure_url, public_id: result.public_id });
             }
-            resolve({ secure_url: result.secure_url, public_id: result.public_id });
-          }
-        );
-        stream.end(buffer);
-      });
+          );
+          uploadStream.end(buffer);
+        }
+      );
+
       fileUrl = uploadResult.secure_url;
       publicId = uploadResult.public_id;
+
+      // ✅ Delete old file if updating
+      if (oldPublicId) await deleteFile(oldPublicId);
     }
 
+    // ✅ Update existing item
     if (id) {
       const dataToUpdate: any = { title, description };
+
       if (fileUrl && publicId) {
         dataToUpdate.fileUrl = fileUrl;
         dataToUpdate.publicId = publicId;
-        if (oldPublicId) await deleteFile(oldPublicId);
-      } else if (file === null && formData.get("removeFile") === "true") {
+      } else if (removeFile) {
         dataToUpdate.fileUrl = null;
         dataToUpdate.publicId = null;
         if (oldPublicId) await deleteFile(oldPublicId);
       }
 
       const updatedItem = await prisma.knowledge.update({
-        where: { id: parseInt(id, 10) },
+        where: { id: Number(id) },
         data: dataToUpdate,
       });
 
       return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
-    } else {
-      const newItem = await prisma.knowledge.create({
-        data: {
-          title,
-          description,
-          fileUrl,
-          publicId,
-          isActive: true,
-        },
-      });
-
-      return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
     }
-  } catch (error) {
-    console.error("Failed to save knowledge item:", error);
+
+    // ✅ Create new item
+    const newItem = await prisma.knowledge.create({
+      data: {
+        title: title || "",
+        description: description || "",
+        fileUrl,
+        publicId,
+        isActive: true,
+      },
+    });
+
+    return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
+  } catch (error: any) {
+    console.error("❌ Failed to save knowledge item:", error);
     return NextResponse.json(
-      { error: "Failed to save item" },
+      { error: "Failed to save item", details: error.message || error },
       { status: 500, headers: corsHeaders }
     );
   }
 }
 
+// ✅ DELETE: Remove item by ID
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -135,31 +145,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const itemToDelete = await prisma.knowledge.findUnique({
-      where: { id: parseInt(id, 10) },
+    const item = await prisma.knowledge.findUnique({
+      where: { id: Number(id) },
     });
 
-    if (!itemToDelete) {
+    if (!item) {
       return NextResponse.json(
         { error: "Item not found" },
         { status: 404, headers: corsHeaders }
       );
     }
 
-    if (itemToDelete.publicId) {
-      await deleteFile(itemToDelete.publicId);
-    }
+    if (item.publicId) await deleteFile(item.publicId);
 
-    await prisma.knowledge.delete({
-      where: { id: parseInt(id, 10) },
-    });
+    await prisma.knowledge.delete({ where: { id: Number(id) } });
 
     return NextResponse.json(
       { message: "Item deleted successfully" },
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {
-    console.error("Failed to delete knowledge item:", error);
+    console.error("❌ Failed to delete knowledge item:", error);
     return NextResponse.json(
       { error: "Failed to delete item" },
       { status: 500, headers: corsHeaders }
@@ -167,27 +173,26 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
+// ✅ PATCH: Toggle isActive status
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const id = Number(body.id);
-    const isActive = Boolean(body.isActive);
+    const { id, isActive } = await request.json();
 
-    if (isNaN(id)) {
+    if (!id) {
       return NextResponse.json(
         { error: "Invalid ID" },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    const updatedItem = await prisma.knowledge.update({
-      where: { id },
-      data: { isActive },
+    const updated = await prisma.knowledge.update({
+      where: { id: Number(id) },
+      data: { isActive: Boolean(isActive) },
     });
 
-    return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
+    return NextResponse.json(updated, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("Failed to toggle active status:", error);
+    console.error("❌ Failed to update status:", error);
     return NextResponse.json(
       { error: "Failed to update status" },
       { status: 500, headers: corsHeaders }
@@ -195,6 +200,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+// ✅ OPTIONS: CORS support
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: corsHeaders });
 }
