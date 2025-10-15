@@ -1,14 +1,19 @@
+// app/api/hajj/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
+import cloudinary from "@/lib/cloudinary"; // Make sure this path is correct
 import prisma from "@/lib/prisma";
 
+// ⭐ Required to use Node.js features like the Cloudinary SDK for file uploads
+export const runtime = "nodejs"; 
+
+// Define CORS headers (adjust "Access-Control-Allow-Origin" for production)
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "*", 
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ---------------- GET ----------------
+// ---------------- GET (Fetch All Packages) ----------------
 export async function GET() {
   try {
     const packages = await prisma.hajjPackage.findMany({
@@ -30,13 +35,15 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
+    // 1. Extract Form Data
     const id = formData.get("id") as string | null;
     const title = formData.get("title") as string | null;
     const priceStr = formData.get("price") as string | null;
     const category = formData.get("category") as string | null;
-    const file = formData.get("file") as File | null;
+    const file = formData.get("file") as File | null; 
     const isActiveStr = formData.get("isActive") as string | null;
 
+    // 2. Validate Basic Fields
     if (!title || !priceStr || !category) {
       return NextResponse.json(
         { error: "Title, Price, and Category are required" },
@@ -57,6 +64,7 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
+    // 3. Cloudinary Upload Helper (uses buffer stream for robustness)
     async function uploadToCloudinary(file: File) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -64,9 +72,10 @@ export async function POST(req: NextRequest) {
       return new Promise<any>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            folder: "hajj-packages",
+            folder: "hajj-packages", 
             width: 400,
             height: 600,
+            crop: "fill" 
           },
           (error, result) => {
             if (error) reject(error);
@@ -76,11 +85,14 @@ export async function POST(req: NextRequest) {
         stream.end(buffer);
       });
     }
-
+    
     let saved;
+
+    // 4. Handle UPDATE logic (ID exists)
     if (id) {
+      const packageId = parseInt(id);
       const existing = await prisma.hajjPackage.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: packageId },
       });
 
       if (!existing) {
@@ -90,9 +102,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // If a new file is provided, upload it and delete the old one
       if (file) {
         if (existing.publicId) {
           try {
+            // Delete old image from Cloudinary
             await cloudinary.uploader.destroy(existing.publicId);
           } catch (err: any) {
             console.error("❌ Old image delete failed:", err.message);
@@ -104,30 +118,36 @@ export async function POST(req: NextRequest) {
         publicId = uploadRes.public_id;
       }
 
+      // Update the database record
       saved = await prisma.hajjPackage.update({
-        where: { id: parseInt(id) },
+        where: { id: packageId },
         data: {
           title,
           price,
           category,
           isActive,
+          // Only include image fields if a new image was uploaded
           ...(imageUrl ? { imageUrl, publicId } : {}),
         },
       });
+    
+    // 5. Handle CREATE logic (No ID)
     } else {
+      
       if (file) {
         const uploadRes = await uploadToCloudinary(file);
         imageUrl = uploadRes.secure_url;
         publicId = uploadRes.public_id;
       }
-
+      
+      // Create the new database record
       saved = await prisma.hajjPackage.create({
         data: {
           title,
           price,
           category,
           isActive,
-          imageUrl: imageUrl || "",
+          imageUrl: imageUrl || "", 
           publicId: publicId || "",
         },
       });
@@ -143,7 +163,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH (Toggle Active/Inactive) ----------------
+// ---------------- PATCH (Toggle Active/Inactive Status) ----------------
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -184,8 +204,9 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const packageId = parseInt(id);
     const existing = await prisma.hajjPackage.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: packageId },
     });
 
     if (!existing) {
@@ -195,16 +216,19 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Attempt to delete the image from Cloudinary
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
+        console.log(`✅ Cloudinary image deleted: ${existing.publicId}`);
       } catch (err: any) {
-        console.error("Cloudinary delete failed:", err.message);
+        console.error("❌ Cloudinary delete failed:", err.message);
       }
     }
 
+    // Delete the database record
     await prisma.hajjPackage.delete({
-      where: { id: parseInt(id) },
+      where: { id: packageId },
     });
 
     return NextResponse.json(
@@ -212,7 +236,7 @@ export async function DELETE(req: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("DELETE /api/hajj error:", error.message);
+    console.error("❌ DELETE /api/hajj error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete package", details: error.message },
       { status: 500, headers: corsHeaders }
