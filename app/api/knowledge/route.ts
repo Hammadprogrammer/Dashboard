@@ -17,6 +17,7 @@ const corsHeaders = {
 const deleteFile = async (publicId: string) => {
   if (publicId) {
     try {
+      // Use "auto" here as it works best for deleting uploaded files regardless of type
       await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
     } catch (err) {
       console.error("Failed to delete file from Cloudinary:", err);
@@ -65,8 +66,9 @@ export async function POST(request: NextRequest) {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: "knowledge_files",
-            resource_type: "auto", 
-            format: "pdf",        
+            // UPDATED: Use "raw" resource type for proper PDF/document handling
+            resource_type: "raw", 
+            // Removed format: "pdf" as it is often redundant when using raw
           },
           (error, result) => {
             if (error || !result) {

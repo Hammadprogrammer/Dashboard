@@ -79,7 +79,8 @@ export default function KnowledgeDashboard() {
       formData.append("id", String(editingId));
       if (file) {
         formData.append("file", file);
-        formData.append("oldPublicId", publicId as string);
+        // Ensure publicId is a string if it exists before appending
+        if (publicId) formData.append("oldPublicId", publicId as string);
       }
     } else {
       if (file) {
@@ -155,6 +156,28 @@ export default function KnowledgeDashboard() {
       showModal("⚠️ Could not update status", "error");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Downloads the file from the given URL.
+   * This is the function copied and adapted from your first code block.
+   */
+  const handleDownload = async (url: string, name: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch file for download");
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      // Ensures the downloaded file name ends with .pdf, using the item's title
+      link.download = name.endsWith(".pdf") ? name : name + ".pdf";
+      document.body.appendChild(link); // Append to trigger download in some browsers
+      link.click();
+      document.body.removeChild(link); // Clean up the element
+    } catch (err) {
+      console.error("Download failed:", err);
+      showModal("⚠️ Download failed! Check console for details.", "error");
     }
   };
 
@@ -240,16 +263,16 @@ export default function KnowledgeDashboard() {
             >
               <div className="flex flex-col items-center justify-center mb-4">
                 <DocumentTextIcon className="w-20 h-20 text-yellow-500" />
+                {/* --- UPDATED: Replaced View File with Download Button --- */}
                 {item.fileUrl && (
-                  <a
-                    href={item.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => handleDownload(item.fileUrl!, item.title)}
                     className="mt-2 text-yellow-500 hover:text-yellow-400 text-sm font-medium transition-colors"
                   >
-                    View File
-                  </a>
+                    Download File
+                  </button>
                 )}
+                {/* -------------------------------------------------------- */}
               </div>
               <h2 className="font-bold text-lg text-yellow-400 mb-1">{item.title}</h2>
               <p className="text-gray-400 mb-4 line-clamp-3">{item.description}</p>
