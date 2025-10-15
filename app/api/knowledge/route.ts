@@ -2,21 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { v2 as cloudinary } from "cloudinary";
 
-// Cloudinary Config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// Delete old file
 const deleteFile = async (publicId: string) => {
   if (publicId) {
     try {
@@ -27,7 +24,6 @@ const deleteFile = async (publicId: string) => {
   }
 };
 
-// GET: Fetch all Knowledge items
 export async function GET() {
   try {
     const items = await prisma.knowledge.findMany({
@@ -43,7 +39,6 @@ export async function GET() {
   }
 }
 
-// POST: Add or Update Knowledge item
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -63,7 +58,6 @@ export async function POST(request: NextRequest) {
     let fileUrl: string | null = null;
     let publicId: string | null = null;
 
-    // ✅ Upload PDF file only if exists
     if (file && file.size > 0) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -71,8 +65,8 @@ export async function POST(request: NextRequest) {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: "knowledge_files",
-            resource_type: "auto", // ✅ auto-detect (keeps PDF as PDF)
-            format: "pdf",         // ✅ force extension to .pdf
+            resource_type: "auto", 
+            format: "pdf",        
           },
           (error, result) => {
             if (error || !result) {
@@ -88,7 +82,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (id) {
-      // Update existing
       const dataToUpdate: any = { title, description };
       if (fileUrl && publicId) {
         dataToUpdate.fileUrl = fileUrl;
@@ -107,7 +100,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
     } else {
-      // New item
       const newItem = await prisma.knowledge.create({
         data: {
           title,
@@ -129,7 +121,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -174,7 +165,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// PATCH
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
@@ -203,7 +193,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// OPTIONS
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: corsHeaders });
 }

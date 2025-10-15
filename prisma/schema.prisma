@@ -143,6 +143,14 @@ model Testimonial {
   createdAt   DateTime @default(now())
 }
 
+model Video {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  videoUrl    String
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true) 
+}
 
 model Knowledge {
 id          Int      @id @default(autoincrement())
@@ -156,11 +164,9 @@ updatedAt   DateTime @updatedAt
 }
 
 
-model Video {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  videoUrl    String
-  createdAt   DateTime @default(now())
-  isActive    Boolean  @default(true) 
+model PDF {
+  id        Int      @id @default(autoincrement())
+  name      String
+  filePath  String
+  createdAt DateTime @default(now())
 }
