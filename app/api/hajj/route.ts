@@ -1,26 +1,51 @@
-// app/api/hajj/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary"; // Make sure this path is correct
 import prisma from "@/lib/prisma";
+import cloudinary from "@/lib/cloudinary";
 
-// ⭐ Required to use Node.js features like the Cloudinary SDK for file uploads
-export const runtime = "nodejs"; 
+// ✅ Force Node.js runtime (Edge runtime causes Buffer & Cloudinary crash)
+export const runtime = "nodejs";
 
-// Define CORS headers (adjust "Access-Control-Allow-Origin" for production)
+// ✅ CORS headers (safe and consistent)
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", 
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ---------------- GET (Fetch All Packages) ----------------
+// ✅ Utility: Cloudinary upload using buffer stream
+async function uploadToCloudinary(file: File) {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return new Promise<any>((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "hajj-packages",
+        resource_type: "image",
+        transformation: [{ width: 400, height: 600, crop: "fill" }],
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+}
+
+// ✅ OPTIONS (CORS preflight)
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
+// ---------------- GET ----------------
 export async function GET() {
   try {
     const packages = await prisma.hajjPackage.findMany({
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(packages, { headers: corsHeaders });
+    return NextResponse.json(packages, { status: 200, headers: corsHeaders });
   } catch (error: any) {
     console.error("❌ GET /api/hajj error:", error.message);
     return NextResponse.json(
@@ -30,23 +55,21 @@ export async function GET() {
   }
 }
 
-// ---------------- POST (CREATE + UPDATE with Image) ----------------
+// ---------------- POST (CREATE or UPDATE) ----------------
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    // 1. Extract Form Data
     const id = formData.get("id") as string | null;
     const title = formData.get("title") as string | null;
     const priceStr = formData.get("price") as string | null;
     const category = formData.get("category") as string | null;
-    const file = formData.get("file") as File | null; 
+    const file = formData.get("file") as File | null;
     const isActiveStr = formData.get("isActive") as string | null;
 
-    // 2. Validate Basic Fields
     if (!title || !priceStr || !category) {
       return NextResponse.json(
-        { error: "Title, Price, and Category are required" },
+        { error: "Title, Price, and Category are required." },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -54,62 +77,35 @@ export async function POST(req: NextRequest) {
     const price = parseFloat(priceStr);
     if (isNaN(price) || price <= 0) {
       return NextResponse.json(
-        { error: "Price must be a valid number greater than 0" },
+        { error: "Price must be a valid number greater than 0." },
         { status: 400, headers: corsHeaders }
       );
     }
 
     const isActive = isActiveStr === "true";
-
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // 3. Cloudinary Upload Helper (uses buffer stream for robustness)
-    async function uploadToCloudinary(file: File) {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      return new Promise<any>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "hajj-packages", 
-            width: 400,
-            height: 600,
-            crop: "fill" 
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(buffer);
-      });
-    }
-    
-    let saved;
-
-    // 4. Handle UPDATE logic (ID exists)
+    // 🔁 UPDATE existing
     if (id) {
-      const packageId = parseInt(id);
       const existing = await prisma.hajjPackage.findUnique({
-        where: { id: packageId },
+        where: { id: parseInt(id) },
       });
 
       if (!existing) {
         return NextResponse.json(
-          { error: "Package not found" },
+          { error: "Package not found." },
           { status: 404, headers: corsHeaders }
         );
       }
 
-      // If a new file is provided, upload it and delete the old one
       if (file) {
+        // Delete old image
         if (existing.publicId) {
           try {
-            // Delete old image from Cloudinary
             await cloudinary.uploader.destroy(existing.publicId);
           } catch (err: any) {
-            console.error("❌ Old image delete failed:", err.message);
+            console.error("⚠️ Old image delete failed:", err.message);
           }
         }
 
@@ -118,44 +114,41 @@ export async function POST(req: NextRequest) {
         publicId = uploadRes.public_id;
       }
 
-      // Update the database record
-      saved = await prisma.hajjPackage.update({
-        where: { id: packageId },
+      const updated = await prisma.hajjPackage.update({
+        where: { id: parseInt(id) },
         data: {
           title,
           price,
           category,
           isActive,
-          // Only include image fields if a new image was uploaded
           ...(imageUrl ? { imageUrl, publicId } : {}),
         },
       });
-    
-    // 5. Handle CREATE logic (No ID)
-    } else {
-      
-      if (file) {
-        const uploadRes = await uploadToCloudinary(file);
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
-      }
-      
-      // Create the new database record
-      saved = await prisma.hajjPackage.create({
-        data: {
-          title,
-          price,
-          category,
-          isActive,
-          imageUrl: imageUrl || "", 
-          publicId: publicId || "",
-        },
-      });
+
+      return NextResponse.json(updated, { status: 200, headers: corsHeaders });
     }
 
-    return NextResponse.json(saved, { headers: corsHeaders });
+    // ➕ CREATE new
+    if (file) {
+      const uploadRes = await uploadToCloudinary(file);
+      imageUrl = uploadRes.secure_url;
+      publicId = uploadRes.public_id;
+    }
+
+    const created = await prisma.hajjPackage.create({
+      data: {
+        title,
+        price,
+        category,
+        isActive,
+        imageUrl: imageUrl || "",
+        publicId: publicId || "",
+      },
+    });
+
+    return NextResponse.json(created, { status: 201, headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST /api/hajj error:", error.message);
+    console.error("❌ POST /api/hajj error:", error);
     return NextResponse.json(
       { error: "Failed to save package", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -163,7 +156,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH (Toggle Active/Inactive Status) ----------------
+// ---------------- PATCH (Toggle Active/Inactive) ----------------
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -171,7 +164,7 @@ export async function PATCH(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID is required." },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -181,11 +174,11 @@ export async function PATCH(req: NextRequest) {
       data: { isActive: Boolean(isActive) },
     });
 
-    return NextResponse.json(updated, { headers: corsHeaders });
+    return NextResponse.json(updated, { status: 200, headers: corsHeaders });
   } catch (error: any) {
     console.error("❌ PATCH /api/hajj error:", error.message);
     return NextResponse.json(
-      { error: "Failed to toggle active", details: error.message },
+      { error: "Failed to toggle active status", details: error.message },
       { status: 500, headers: corsHeaders }
     );
   }
@@ -199,40 +192,34 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID is required." },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    const packageId = parseInt(id);
     const existing = await prisma.hajjPackage.findUnique({
-      where: { id: packageId },
+      where: { id: parseInt(id) },
     });
 
     if (!existing) {
       return NextResponse.json(
-        { error: "Package not found" },
+        { error: "Package not found." },
         { status: 404, headers: corsHeaders }
       );
     }
 
-    // Attempt to delete the image from Cloudinary
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
-        console.log(`✅ Cloudinary image deleted: ${existing.publicId}`);
       } catch (err: any) {
-        console.error("❌ Cloudinary delete failed:", err.message);
+        console.error("⚠️ Cloudinary delete failed:", err.message);
       }
     }
 
-    // Delete the database record
-    await prisma.hajjPackage.delete({
-      where: { id: packageId },
-    });
+    await prisma.hajjPackage.delete({ where: { id: parseInt(id) } });
 
     return NextResponse.json(
-      { message: "Package deleted successfully" },
+      { message: "Package deleted successfully." },
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
@@ -242,9 +229,4 @@ export async function DELETE(req: NextRequest) {
       { status: 500, headers: corsHeaders }
     );
   }
-}
-
-// ---------------- OPTIONS (CORS Preflight) ----------------
-export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
