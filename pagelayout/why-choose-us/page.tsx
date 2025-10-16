@@ -10,9 +10,8 @@ import {
   PlusCircleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  StarIcon, // Replaced with a relevant icon
   PhotoIcon,
-  LightBulbIcon, // New icon for 'Why Choose Us' theme
+  LightBulbIcon, 
 } from "@heroicons/react/24/outline";
 
 // --- Interface ---
@@ -25,7 +24,7 @@ interface WhyChooseUsItem {
   isActive: boolean;
 }
 
-// --- Status Messages Map (Copied from Hajj Dashboard) ---
+// --- Status Messages Map ---
 const STATUS_MESSAGES = {
   success: { title: "Success 🎉", iconColor: "text-green-500" },
   error: { title: "Error ❌", iconColor: "text-red-500" },
@@ -46,7 +45,7 @@ export default function WhyChooseUsDashboard() {
   
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // --- Loading States (Consistent naming) ---
+  // --- Loading States ---
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -54,7 +53,7 @@ export default function WhyChooseUsDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // --- Modal States (Consistent naming) ---
+  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">("success");
@@ -73,7 +72,8 @@ export default function WhyChooseUsDashboard() {
   const fetchItems = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/why-choose-us", { cache: "no-store" });
+      // Ensure no-store to always fetch the latest data from the API route
+      const res = await fetch("/api/why-choose-us", { cache: "no-store" }); 
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to fetch items");
@@ -83,7 +83,7 @@ export default function WhyChooseUsDashboard() {
     } catch (err) {
       const error = err as Error;
       console.error("❌ Fetch Error:", error.message);
-      showModal(`⚠️ Error fetching items: ${error.message}`, "error");
+      showModal(`⚠️ Could not load data. Please check the network connection.`, "error"); 
     } finally {
       setIsLoading(false);
     }
@@ -96,12 +96,11 @@ export default function WhyChooseUsDashboard() {
 
   // --- Form Handlers ---
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageFile(e.target.files?.[0] || null);
-    // When a new file is selected, clear the existing image URL/ID to show only the preview
-    if (editingId) {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    // When a new file is selected, clear the currentImageUrl to show the new file preview
+    if (file) {
         setCurrentImageUrl(null);
-        // We keep currentPublicId here to pass to FormData if the user *doesn't* select a new file.
-        // The FormData logic will handle the oldPublicId if a new file is uploaded.
     }
   }
 
@@ -124,8 +123,12 @@ export default function WhyChooseUsDashboard() {
     }
 
     if (!editingId && !imageFile) {
-      return showModal("⚠️ Image is required for new items", "warning");
+        return showModal("⚠️ Image is required for new items", "warning");
     }
+    if (editingId && !imageFile && !currentImageUrl) {
+        return showModal("⚠️ Image is required. Please upload one or ensure the existing image is loaded.", "warning");
+    }
+
 
     setIsProcessing(true);
     const formData = new FormData();
@@ -136,12 +139,13 @@ export default function WhyChooseUsDashboard() {
       formData.append("id", String(editingId));
       if (imageFile) {
         formData.append("imageFile", imageFile);
-        // Pass the public ID of the image currently in the database to be deleted
-        if (currentPublicId) {
+        // Only append oldPublicId if a new file is being uploaded to trigger deletion
+        if (currentPublicId) { 
             formData.append("oldPublicId", currentPublicId);
         }
-      }
+      } 
     } else {
+      // Creating a new item
       formData.append("imageFile", imageFile as File);
     }
 
@@ -165,20 +169,20 @@ export default function WhyChooseUsDashboard() {
     }
   };
 
+  // --- CRUD Operations Handlers ---
   const handleEdit = (item: WhyChooseUsItem) => {
     setEditingId(item.id);
     setTitle(item.title);
     setDescription(item.description);
     setCurrentImageUrl(item.imageUrl);
     setCurrentPublicId(item.publicId);
-    setImageFile(null); // Clear new file selection
+    setImageFile(null); 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
-  // --- CRUD Operations ---
+  
   const confirmDelete = (id: number) => {
     setDeleteId(id);
     setIsDeleteOpen(true);
@@ -208,6 +212,8 @@ export default function WhyChooseUsDashboard() {
   };
 
   const toggleActive = async (item: WhyChooseUsItem) => {
+    if (isAnyActionDisabled) return; 
+    
     setIsProcessing(true);
     try {
       const res = await fetch("/api/why-choose-us", {
@@ -231,7 +237,6 @@ export default function WhyChooseUsDashboard() {
 
   const isAnyActionDisabled = isProcessing || isLoading;
   
-  // Determine which image to preview
   const previewUrl = imageFile ? URL.createObjectURL(imageFile) : currentImageUrl;
 
   // --- Render ---
@@ -245,7 +250,7 @@ export default function WhyChooseUsDashboard() {
         <LightBulbIcon className="h-8 w-8 mr-2" /> Why Choose Us Dashboard
       </h1>
 
-      {/* Loading/Processing Overlay (Consistent Hajj UI) */}
+      {/* Loading/Processing Overlay */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -257,7 +262,7 @@ export default function WhyChooseUsDashboard() {
         </div>
       )}
 
-      {/* --- Upload / Edit Form (Consistent Hajj UI) --- */}
+      {/* --- Upload / Edit Form --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -387,7 +392,7 @@ export default function WhyChooseUsDashboard() {
               
               <p className="text-sm text-gray-300 line-clamp-3 mb-3">{item.description}</p>
               
-              {/* Action Buttons (Consistent Hajj UI) */}
+              {/* Action Buttons */}
               <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
                 <button
                   onClick={() => toggleActive(item)}
@@ -430,7 +435,7 @@ export default function WhyChooseUsDashboard() {
         </div>
       )}
 
-      {/* --- MODAL: Status Message (Consistent Hajj UI) --- */}
+      {/* --- MODAL: Status Message --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -461,7 +466,7 @@ export default function WhyChooseUsDashboard() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation (Consistent Hajj UI) --- */}
+      {/* --- MODAL: Delete Confirmation --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

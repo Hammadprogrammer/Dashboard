@@ -1,4 +1,5 @@
-// api/why-choose-us/route.ts
+// app/api/why-choose-us/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
@@ -29,11 +30,36 @@ const deleteImage = async (publicId: string | null | undefined) => {
     try {
         await cloudinary.uploader.destroy(publicId);
     } catch (error) {
-        console.warn(`Could not delete old image with publicId: ${publicId}. Error:`, error);
-        // We log the warning but don't re-throw the error to ensure the database operation completes.
+        console.warn(`⚠️ Cloudinary deletion failed for ID: ${publicId}. Error:`, error);
     }
   }
 };
+
+/**
+ * NEW Base64 Image Upload Technique (The Core Fix)
+ * @param imageFile The File object from the form data.
+ * @returns Object containing secure_url and public_id.
+ */
+const uploadImageBase64 = async (imageFile: File) => {
+    // Convert File to Buffer
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Convert Buffer to Base64 String (Data URI)
+    const base64Image = `data:${imageFile.type};base64,${buffer.toString("base64")}`;
+
+    // Upload Base64 string directly to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(base64Image, { 
+        folder: "why_choose_us",
+        resource_type: "image",
+    });
+
+    return {
+        secure_url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+    };
+};
+
 
 // ---------------- OPTIONS Request: Handle CORS preflight ----------------
 export async function OPTIONS() {
@@ -41,6 +67,7 @@ export async function OPTIONS() {
 }
 
 // ---------------- GET Request: Fetch all items ----------------
+// API file name MUST be route.ts for this to work correctly as per your fix #1
 export async function GET() {
   try {
     const items = await prisma.whyChooseUsItem.findMany({
@@ -50,7 +77,7 @@ export async function GET() {
   } catch (error) {
     console.error("❌ Failed to fetch Why Choose Us items:", error);
     return NextResponse.json(
-      { error: "Failed to fetch items due to server error." },
+      { error: "Failed to fetch items due to a server error." },
       { status: 500, headers: corsHeaders }
     );
   }
@@ -64,7 +91,6 @@ export async function POST(request: NextRequest) {
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const imageFile = formData.get("imageFile") as File | null;
-    // NOTE: Changed oldPublicId check to be explicit for safety
     const oldPublicId = formData.get("oldPublicId") as string | null; 
 
     if (!title || !description) {
@@ -77,28 +103,10 @@ export async function POST(request: NextRequest) {
     let imageUrl = null;
     let publicId = null;
 
-    // 1. Handle image upload if a new file is provided
+    // 1. Handle image upload using Base64 method if a new file is provided
     if (imageFile && imageFile.size > 0) {
-      const arrayBuffer = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { 
-            folder: "why_choose_us",
-            resource_type: "image", // Ensure only images are processed
-          },
-          (error, result) => {
-            if (error) {
-              return reject(error);
-            }
-            resolve(result);
-          }
-        );
-        stream.end(buffer);
-      });
-
-      const result = uploadResult as { secure_url: string; public_id: string };
+      // ✅ Using Base64 Upload Fix (Fix #2)
+      const result = await uploadImageBase64(imageFile);
       imageUrl = result.secure_url;
       publicId = result.public_id;
     }
@@ -107,14 +115,14 @@ export async function POST(request: NextRequest) {
     if (id) {
       const dataToUpdate: any = { title, description };
       
-      // If a new image was uploaded, update image fields and delete old image
+      // If a new image was uploaded (i.e., imageUrl is set)
       if (imageUrl && publicId) {
         dataToUpdate.imageUrl = imageUrl;
         dataToUpdate.publicId = publicId;
         
-        // Safely delete the old image before updating the record
+        // Delete old image (Fix #3: Old Image Deletion Check)
         if (oldPublicId) {
-            await deleteImage(oldPublicId);
+            await deleteImage(oldPublicId); 
         }
       }
 
@@ -128,6 +136,7 @@ export async function POST(request: NextRequest) {
     
     // 3. Create new item
     else {
+      // Must have a new image for creation
       if (!imageUrl || !publicId) {
         return NextResponse.json(
           { error: "Image file is required for new items." },
@@ -150,7 +159,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("❌ Failed to save Why Choose Us item:", error);
     return NextResponse.json(
-        { error: "Failed to save item due to server or upload error." }, 
+        { error: "Failed to save item. Check server logs for Cloudinary/Prisma error details." }, 
         { status: 500, headers: corsHeaders }
     );
   }
@@ -169,7 +178,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Find the item to get the publicId
     const itemToDelete = await prisma.whyChooseUsItem.findUnique({
       where: { id: parseInt(id) },
     });
@@ -178,7 +186,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Item not found." }, { status: 404, headers: corsHeaders });
     }
 
-    // Delete image from Cloudinary (safely)
+    // Delete image from Cloudinary (Fix #3)
     await deleteImage(itemToDelete.publicId);
 
     // Delete the item from the database
@@ -190,7 +198,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("❌ Failed to delete Why Choose Us item:", error);
     return NextResponse.json(
-      { error: "Failed to delete item due to server error." },
+      { error: "Failed to delete item due to a server error." },
       { status: 500, headers: corsHeaders }
     );
   }
