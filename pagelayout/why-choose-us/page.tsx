@@ -1,9 +1,21 @@
+// WhyChooseUsDashboard.tsx
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
+import {
+  PencilIcon,
+  TrashIcon,
+  PlusCircleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  StarIcon, // Replaced with a relevant icon
+  PhotoIcon,
+  LightBulbIcon, // New icon for 'Why Choose Us' theme
+} from "@heroicons/react/24/outline";
 
+// --- Interface ---
 interface WhyChooseUsItem {
   id: number;
   title: string;
@@ -13,19 +25,36 @@ interface WhyChooseUsItem {
   isActive: boolean;
 }
 
+// --- Status Messages Map (Copied from Hajj Dashboard) ---
+const STATUS_MESSAGES = {
+  success: { title: "Success 🎉", iconColor: "text-green-500" },
+  error: { title: "Error ❌", iconColor: "text-red-500" },
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-500" },
+} as const;
+
+
 export default function WhyChooseUsDashboard() {
+  // --- State Management ---
   const [items, setItems] = useState<WhyChooseUsItem[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [publicId, setPublicId] = useState<string | null>(null);
+  
+  // States to store existing image details for edit/delete
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [currentPublicId, setCurrentPublicId] = useState<string | null>(null);
+  
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [isProcessing, setIsProcessing] = useState(true);
+  // --- Loading States (Consistent naming) ---
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // --- Modal States (Consistent naming) ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">("success");
@@ -33,38 +62,56 @@ export default function WhyChooseUsDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
-
+  
+  // --- Data Fetching ---
   const fetchItems = async () => {
     try {
-      setIsProcessing(true);
-      const res = await fetch("/api/why-choose-us");
-      if (!res.ok) throw new Error("Failed to fetch items");
-      const data = await res.json();
+      setIsLoading(true);
+      const res = await fetch("/api/why-choose-us", { cache: "no-store" });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to fetch items");
+      }
+      const data: WhyChooseUsItem[] = await res.json();
       setItems(data);
     } catch (err) {
-      console.error("❌ Fetch Error:", err);
-      showModal("⚠️ Error fetching items", "error");
+      const error = err as Error;
+      console.error("❌ Fetch Error:", error.message);
+      showModal(`⚠️ Error fetching items: ${error.message}`, "error");
     } finally {
-      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- Form Handlers ---
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageFile(e.target.files?.[0] || null);
+    // When a new file is selected, clear the existing image URL/ID to show only the preview
+    if (editingId) {
+        setCurrentImageUrl(null);
+        // We keep currentPublicId here to pass to FormData if the user *doesn't* select a new file.
+        // The FormData logic will handle the oldPublicId if a new file is uploaded.
+    }
+  }
+
   const resetForm = () => {
+    setEditingId(null);
     setTitle("");
     setDescription("");
     setImageFile(null);
-    setImageUrl(null);
-    setPublicId(null);
-    setEditingId(null);
+    setCurrentImageUrl(null);
+    setCurrentPublicId(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -89,7 +136,10 @@ export default function WhyChooseUsDashboard() {
       formData.append("id", String(editingId));
       if (imageFile) {
         formData.append("imageFile", imageFile);
-        formData.append("oldPublicId", publicId as string);
+        // Pass the public ID of the image currently in the database to be deleted
+        if (currentPublicId) {
+            formData.append("oldPublicId", currentPublicId);
+        }
       }
     } else {
       formData.append("imageFile", imageFile as File);
@@ -103,12 +153,13 @@ export default function WhyChooseUsDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      showModal(editingId ? "✅ Item updated!" : "✅ Item added!", "success");
+      showModal(editingId ? "✅ Item updated successfully!" : "✅ New Item saved!", "success");
       resetForm();
       fetchItems();
     } catch (err) {
-      console.error("❌ Save Error:", err);
-      showModal("⚠️ Error saving item", "error");
+      const error = err as Error;
+      console.error("❌ Save Error:", error.message);
+      showModal(`⚠️ Error saving item: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -118,15 +169,16 @@ export default function WhyChooseUsDashboard() {
     setEditingId(item.id);
     setTitle(item.title);
     setDescription(item.description);
-    setImageUrl(item.imageUrl);
-    setPublicId(item.publicId);
-    setImageFile(null);
+    setCurrentImageUrl(item.imageUrl);
+    setCurrentPublicId(item.publicId);
+    setImageFile(null); // Clear new file selection
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // --- CRUD Operations ---
   const confirmDelete = (id: number) => {
     setDeleteId(id);
     setIsDeleteOpen(true);
@@ -139,166 +191,246 @@ export default function WhyChooseUsDashboard() {
       const res = await fetch(`/api/why-choose-us?id=${deleteId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete");
-      showModal("🗑️ Item deleted!", "success");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete");
+      
+      showModal("🗑️ Item deleted successfully!", "success");
       setDeleteId(null);
       fetchItems();
     } catch (err) {
-      console.error("❌ Delete Error:", err);
-      showModal("⚠️ Could not delete item", "error");
+      const error = err as Error;
+      console.error("❌ Delete Error:", error.message);
+      showModal(`⚠️ Could not delete item: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
     }
   };
 
-  const toggleActive = async (id: number, currentStatus: boolean) => {
+  const toggleActive = async (item: WhyChooseUsItem) => {
     setIsProcessing(true);
     try {
       const res = await fetch("/api/why-choose-us", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isActive: !currentStatus }),
+        body: JSON.stringify({ id: item.id, isActive: !item.isActive }),
       });
-      if (!res.ok) throw new Error("Failed to toggle status");
-      showModal("✅ Status updated!", "success");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to toggle status");
+      
+      showModal("✅ Status updated successfully!", "success");
       fetchItems();
     } catch (err) {
-      console.error("❌ Toggle Error:", err);
-      showModal("⚠️ Could not update status", "error");
+      const error = err as Error;
+      console.error("❌ Toggle Error:", error.message);
+      showModal(`⚠️ Could not update status: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const isAnyActionDisabled = isProcessing || !!editingId;
+  const isAnyActionDisabled = isProcessing || isLoading;
+  
+  // Determine which image to preview
+  const previewUrl = imageFile ? URL.createObjectURL(imageFile) : currentImageUrl;
 
+  // --- Render ---
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center" id="why-choose-us">
-        💡 Why Choose Us Dashboard
+    <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
+      {/* Page Title */}
+      <h1
+        className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center"
+        id="why-choose-us-heading"
+      >
+        <LightBulbIcon className="h-8 w-8 mr-2" /> Why Choose Us Dashboard
       </h1>
 
-      {isProcessing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
+      {/* Loading/Processing Overlay (Consistent Hajj UI) */}
+      {(isProcessing || isLoading) && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400"></div>
+            <p className="mt-4 text-white font-semibold">
+              {isLoading ? "Loading Items..." : "Processing Request..."}
+            </p>
+          </div>
         </div>
       )}
 
+      {/* --- Upload / Edit Form (Consistent Hajj UI) --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
-        className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
+        className="space-y-6 bg-gray-900 text-white shadow-2xl rounded-xl p-6 md:p-8 mb-10 border border-gray-700"
       >
+        <h2 className="text-xl font-bold text-yellow-400 flex items-center">
+          {editingId ? "Edit Why Choose Us Item" : "Add New Why Choose Us Item"}
+          <PlusCircleIcon className="h-5 w-5 ml-2" />
+        </h2>
+        
+        {/* Title Input */}
         <input
           type="text"
-          placeholder="Title"
+          placeholder="Title (e.g., Best Price Guarantee)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
           disabled={isProcessing}
+          required
         />
+        
+        {/* Description Input */}
         <textarea
-          placeholder="Description"
+          placeholder="Detailed Description (e.g., We offer a 100% money back guarantee...)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none"
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none transition-colors"
           disabled={isProcessing}
-        />
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept="image/*"
-          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-          disabled={isProcessing}
-          className="border border-gray-700 p-2 w-full rounded bg-black text-white"
+          required
         />
 
-        {imageUrl && (
+        {/* File Input */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
+          <label className="text-gray-400 flex-shrink-0 flex items-center">
+            <PhotoIcon className="h-5 w-5 mr-2" /> 
+            {editingId ? "Replace Icon/Image (Optional)" : "Upload Icon/Image"}
+          </label>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={onFileChange}
+            disabled={isProcessing}
+            className="w-full md:w-auto file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 transition-colors cursor-pointer text-sm text-gray-300"
+          />
+        </div>
+
+        {/* Image Preview */}
+        {previewUrl && (
           <div className="mt-4">
-            <p className="text-sm text-gray-300 mb-2">Current Image:</p>
+            <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
             <img
-              src={imageUrl}
-              alt="Current"
-              className="w-full h-48 object-cover rounded-lg border border-gray-700"
+              src={previewUrl}
+              alt="Item Preview"
+              className="w-full h-48 object-cover rounded-lg border border-gray-600"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.png";
+                e.currentTarget.onerror = null;
+              }}
             />
           </div>
         )}
 
-        <div className="flex gap-4">
+        {/* Form Actions */}
+        <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            disabled={isProcessing}
-            className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
+            disabled={isProcessing || !title.trim() || !description.trim() || (editingId === null && !imageFile)}
+            className="bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold w-full hover:bg-yellow-600 disabled:opacity-50 transition-colors shadow-lg"
           >
-            {isProcessing ? "Processing..." : editingId ? "Update Item" : "Save Item"}
+            {isProcessing ? "Processing..." : editingId ? "Update Item" : "Save New Item"}
           </button>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
               disabled={isProcessing}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
+              className="bg-gray-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-600 disabled:opacity-50 transition-colors"
             >
-              Cancel
+              Cancel Edit
             </button>
           )}
         </div>
       </form>
 
-      {!isProcessing && items.length === 0 ? (
-        <p className="text-center text-gray-500">No items available.</p>
+      {/* --- Items List --- */}
+      <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b border-gray-700 pb-2">
+        Current Items ({items.length})
+      </h2>
+      
+      {!isLoading && items.length === 0 ? (
+        <p className="text-center text-gray-500 p-10 bg-gray-900 rounded-xl">
+          No 'Why Choose Us' items have been created yet.
+        </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
             <div
               key={item.id}
-              className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
+              className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border ${
+                item.isActive ? "border-green-600" : "border-gray-700 opacity-80"
+              }`}
             >
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="w-full h-48 object-cover rounded mb-2"
-              />
-              <h2 className="font-bold text-lg">{item.title}</h2>
-              <p className="text-gray-300 mb-3 line-clamp-3">{item.description}</p>
+              <div className="relative">
+                <img
+                  src={item.imageUrl || "/placeholder.png"}
+                  alt={item.title}
+                  className="w-full h-48 object-cover rounded-lg mb-3"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.png";
+                    e.currentTarget.onerror = null;
+                  }}
+                />
+                <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-bold rounded-full text-black ${
+                    item.isActive ? "bg-green-400" : "bg-red-400"
+                }`}>
+                    {item.isActive ? "ACTIVE" : "INACTIVE"}
+                </span>
+              </div>
               
-              <div className="flex justify-between gap-2 mt-auto">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-extrabold text-xl text-yellow-400 line-clamp-2">
+                  {item.title}
+                </h3>
+              </div>
+              
+              <p className="text-sm text-gray-300 line-clamp-3 mb-3">{item.description}</p>
+              
+              {/* Action Buttons (Consistent Hajj UI) */}
+              <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
                 <button
-                  onClick={() => toggleActive(item.id, item.isActive)}
+                  onClick={() => toggleActive(item)}
                   disabled={isAnyActionDisabled}
-                  className={`px-4 py-1 rounded disabled:opacity-50 ${
+                  className={`px-3 py-1 rounded-full text-xs font-bold disabled:opacity-50 transition-colors flex items-center ${
                     item.isActive
-                      ? "bg-green-500 hover:bg-green-600"
-                      : "bg-red-500 hover:bg-red-600"
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                 >
-                  {item.isActive ? "Active ✅" : "Inactive ❌"}
+                  {item.isActive ? (
+                    <CheckCircleIcon className="h-4 w-4 mr-1" />
+                  ) : (
+                    <XCircleIcon className="h-4 w-4 mr-1" />
+                  )}
+                  {item.isActive ? "Active" : "Inactive"}
                 </button>
-                <Link href="#why-choose-us">
-                <button
-                  onClick={() => handleEdit(item)}
-                  disabled={isAnyActionDisabled}
-                  className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                >
-                  Edit
-                </button>
-                </Link>
-                <button
-                  onClick={() => confirmDelete(item.id)}
-                  disabled={isAnyActionDisabled}
-                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                
+                <div className="flex gap-2">
+                  <Link href="#why-choose-us-heading" passHref legacyBehavior>
+                    <button
+                      onClick={() => handleEdit(item)}
+                      disabled={isAnyActionDisabled}
+                      className="bg-yellow-500 text-black px-3 py-1 rounded-lg text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  </Link>
+                  <button
+                    onClick={() => confirmDelete(item.id)}
+                    disabled={isAnyActionDisabled}
+                    className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 flex items-center"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* --- MODALS --- */}
+      {/* --- MODAL: Status Message (Consistent Hajj UI) --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -307,21 +439,21 @@ export default function WhyChooseUsDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+            <Dialog.Panel className="w-full max-w-md rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
               <Dialog.Title
-                className={`text-lg font-bold ${
-                  modalType === "success" ? "text-green-600" : "text-red-600"
+                className={`text-2xl font-extrabold ${
+                  STATUS_MESSAGES[modalType].iconColor
                 }`}
               >
-                {modalType === "success" ? "Success 🎉" : "Error ❌"}
+                {STATUS_MESSAGES[modalType].title}
               </Dialog.Title>
-              <p className="mt-2">{modalMessage}</p>
-              <div className="mt-4">
+              <p className="mt-4 text-lg text-gray-300">{modalMessage}</p>
+              <div className="mt-6">
                 <button
-                  className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsModalOpen(false)}
                 >
-                  OK
+                  Close
                 </button>
               </div>
             </Dialog.Panel>
@@ -329,6 +461,7 @@ export default function WhyChooseUsDashboard() {
         </Dialog>
       </Transition>
 
+      {/* --- MODAL: Delete Confirmation (Consistent Hajj UI) --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -337,27 +470,27 @@ export default function WhyChooseUsDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
-              <Dialog.Title className="text-lg font-bold text-red-600">
-                Confirm Delete
+            <Dialog.Panel className="w-full max-w-sm rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
+              <Dialog.Title className="text-xl font-bold text-red-500">
+                Confirm Deletion
               </Dialog.Title>
-              <p className="mt-2">
-                Are you sure you want to delete this item?
+              <p className="mt-2 text-gray-300">
+                Are you absolutely sure you want to delete this item? This action cannot be undone.
               </p>
-              <div className="mt-4 flex justify-center gap-4">
+              <div className="mt-6 flex justify-center gap-4">
                 <button
-                  className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  className="bg-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsDeleteOpen(false)}
                   disabled={isProcessing}
                 >
                   Cancel
                 </button>
                 <button
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  className="bg-red-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
                   onClick={handleDelete}
                   disabled={isProcessing}
                 >
-                  {isProcessing ? "Deleting..." : "Delete"}
+                  {isProcessing ? "Deleting..." : "Delete Permanently"}
                 </button>
               </div>
             </Dialog.Panel>
