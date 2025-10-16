@@ -1,28 +1,28 @@
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import Link from "next/link";
 import {
   PencilIcon,
   TrashIcon,
-  ArrowDownTrayIcon, // Reusing for image download/view placeholder
   CheckCircleIcon,
   XCircleIcon,
-  TicketIcon, // New icon for Hajj Packages
-  PhotoIcon, // New icon for image file
+  TicketIcon, 
+  PhotoIcon, 
 } from "@heroicons/react/24/outline";
 
+// --- Interface Definitions ---
 interface Package {
   id: number;
   title: string;
   price: number;
   imageUrl: string;
-  publicId: string; // Added from API structure
+  publicId: string;
   isActive: boolean;
-  category: "Economic" | "Standard" | "Premium";
+  category: string; // Changed to string to allow any category from the database
 }
 
-const categories: Package["category"][] = ["Economic", "Standard", "Premium"];
+// Define available categories used in the form
+const categories: string[] = ["Hajj", "Umrah", "Ziyarat", "Economic", "Standard", "Premium"];
 
 const STATUS_MESSAGES = {
   success: { title: "Success 🎉", iconColor: "text-green-500" },
@@ -36,8 +36,8 @@ export default function HajjDashboardPage() {
   const [formState, setFormState] = useState({
     title: "",
     price: "",
-    category: "Economic" as Package["category"],
-    isActive: true, // Default to active for new items
+    category: categories[0] || "Hajj",
+    isActive: true, 
   });
   const [file, setFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -70,7 +70,7 @@ export default function HajjDashboardPage() {
   const fetchPackages = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/hajj"); // Assuming /api/hajj returns all packages
+      const res = await fetch("/api/hajj"); 
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to fetch packages");
@@ -88,7 +88,13 @@ export default function HajjDashboardPage() {
   };
 
   useEffect(() => {
+    // This effect runs once on mount to fetch data
     fetchPackages();
+    
+    // Cleanup function for development mode (to prevent double fetch warnings)
+    return () => {
+        // Any necessary cleanup
+    }
   }, []);
   
   // --- Form Handlers ---
@@ -96,7 +102,7 @@ export default function HajjDashboardPage() {
     setFormState({
       title: "",
       price: "",
-      category: "Economic",
+      category: categories[0] || "Hajj",
       isActive: true,
     });
     setFile(null);
@@ -125,7 +131,6 @@ export default function HajjDashboardPage() {
     setCurrentImageUrl(pkg.imageUrl);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    // Scroll smoothly to the form for better UX
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -167,7 +172,7 @@ export default function HajjDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to save package");
+        throw new Error(data.error || data.details || "Failed to save package");
       }
       showModal(editingId ? "Package updated! 👍" : "Package added! 🕋", "success");
       resetForm();
@@ -181,7 +186,7 @@ export default function HajjDashboardPage() {
     }
   };
   
-  // --- Action Handlers ---
+  // --- Action Handlers (Delete/Toggle) ---
   const confirmDelete = (id: number) => {
     setDeleteId(id);
     setIsDeleteOpen(true);
@@ -196,7 +201,7 @@ export default function HajjDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to delete package");
+        throw new Error(data.error || data.details || "Failed to delete package");
       }
       showModal(" Package deleted! 👋", "success");
       setDeleteId(null);
@@ -221,7 +226,7 @@ export default function HajjDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to toggle status");
+        throw new Error(data.error || data.details || "Failed to toggle status");
       }
       showModal(" Status updated! ✅", "success");
       fetchPackages();
@@ -236,6 +241,14 @@ export default function HajjDashboardPage() {
   
   const isAnyActionDisabled = isProcessing || isLoading;
   const { title, price, category, isActive } = formState;
+  
+  // Helper to color-code the category tags
+  const getCategoryColor = (cat: string) => {
+      if (cat.toLowerCase().includes("premium")) return "bg-red-600";
+      if (cat.toLowerCase().includes("standard")) return "bg-blue-600";
+      if (cat.toLowerCase().includes("economic")) return "bg-green-600";
+      return "bg-gray-500"; // Default
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
@@ -276,6 +289,7 @@ export default function HajjDashboardPage() {
             onChange={handleChange}
             className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
             disabled={isProcessing}
+            required
           />
           <input
             type="number"
@@ -287,6 +301,7 @@ export default function HajjDashboardPage() {
             step="0.01"
             className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
             disabled={isProcessing}
+            required
           />
           <select
             name="category"
@@ -376,8 +391,6 @@ export default function HajjDashboardPage() {
             >
               <div className="relative h-48 w-full">
                 {pkg.imageUrl ? (
-                    // Use a standard <img> tag for the image display
-                    // Assuming imageUrl is a direct link to the image
                     <img
                         src={pkg.imageUrl}
                         alt={pkg.title}
@@ -388,9 +401,7 @@ export default function HajjDashboardPage() {
                         <PhotoIcon className="h-16 w-16" />
                     </div>
                 )}
-                <span className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full ${
-                  pkg.category === "Premium" ? "bg-red-600" : pkg.category === "Standard" ? "bg-blue-600" : "bg-green-600"
-                }`}>
+                <span className={`absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full text-white ${getCategoryColor(pkg.category)}`}>
                     {pkg.category.toUpperCase()}
                 </span>
               </div>

@@ -1,44 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import cloudinary from "@/lib/cloudinary";
+import { v2 as cloudinary } from "cloudinary"; 
 
-// ✅ Force Node.js runtime (Edge runtime causes Buffer & Cloudinary crash)
 export const runtime = "nodejs";
 
-// ✅ CORS headers (safe and consistent)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true, 
+});
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ✅ Utility: Cloudinary upload using buffer stream
-async function uploadToCloudinary(file: File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  return new Promise<any>((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: "hajj-packages",
+/**
+ * Helper function for reliable Base64 synchronous image upload.
+ */
+async function uploadImage(file: File) {
+    if (!file.type.startsWith("image/")) {
+        throw new Error("File must be an image type.");
+    }
+    
+    // Convert File to Buffer, then to Base64 string
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const base64File = `data:${file.type};base64,${buffer.toString('base64')}`;
+    
+    const uploadResult = await cloudinary.uploader.upload(base64File, {
+        folder: "hajj-packages", 
         resource_type: "image",
         transformation: [{ width: 400, height: 600, crop: "fill" }],
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    uploadStream.end(buffer);
-  });
+    });
+
+    return uploadResult;
 }
 
-// ✅ OPTIONS (CORS preflight)
+// ---------------- OPTIONS (CORS preflight) ----------------
 export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: corsHeaders });
 }
 
-// ---------------- GET ----------------
+// ---------------- GET (Fetch all packages) ----------------
 export async function GET() {
   try {
     const packages = await prisma.hajjPackage.findMany({
@@ -81,15 +86,38 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: corsHeaders }
       );
     }
+    
+    const isUpdating = !!id;
+
+    if (!isUpdating && !file) {
+        return NextResponse.json(
+            { error: "A file is required for a new Hajj package." },
+            { status: 400, headers: corsHeaders }
+        );
+    }
 
     const isActive = isActiveStr === "true";
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
+    // 🔄 Handle File Upload (if a file is present)
+    if (file && file.size > 0) {
+        if (!file.type.startsWith("image/")) {
+            return NextResponse.json(
+                { error: "Only image files are accepted." },
+                { status: 400, headers: corsHeaders }
+            );
+        }
+        const uploadRes = await uploadImage(file); 
+        imageUrl = uploadRes.secure_url;
+        publicId = uploadRes.public_id;
+    }
+
+
     // 🔁 UPDATE existing
-    if (id) {
+    if (isUpdating) {
       const existing = await prisma.hajjPackage.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id!) },
       });
 
       if (!existing) {
@@ -98,30 +126,24 @@ export async function POST(req: NextRequest) {
           { status: 404, headers: corsHeaders }
         );
       }
-
-      if (file) {
-        // Delete old image
-        if (existing.publicId) {
+      
+      // If a NEW file was uploaded, delete the OLD file.
+      if (imageUrl && existing.publicId) { 
           try {
-            await cloudinary.uploader.destroy(existing.publicId);
+              await cloudinary.uploader.destroy(existing.publicId); 
           } catch (err: any) {
-            console.error("⚠️ Old image delete failed:", err.message);
+              console.error("⚠️ Old image delete failed:", err.message);
           }
-        }
-
-        const uploadRes = await uploadToCloudinary(file);
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
       }
 
       const updated = await prisma.hajjPackage.update({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id!) },
         data: {
           title,
           price,
           category,
           isActive,
-          ...(imageUrl ? { imageUrl, publicId } : {}),
+          ...(imageUrl ? { imageUrl, publicId } : {}), 
         },
       });
 
@@ -129,20 +151,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ➕ CREATE new
-    if (file) {
-      const uploadRes = await uploadToCloudinary(file);
-      imageUrl = uploadRes.secure_url;
-      publicId = uploadRes.public_id;
+    if (!imageUrl || !publicId) {
+       // Should not happen if file check is done correctly, but as a fallback:
+       throw new Error("File upload data is missing for new package creation.");
     }
-
+    
     const created = await prisma.hajjPackage.create({
       data: {
         title,
         price,
         category,
         isActive,
-        imageUrl: imageUrl || "",
-        publicId: publicId || "",
+        imageUrl,
+        publicId,
       },
     });
 
@@ -162,9 +183,9 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, isActive } = body;
 
-    if (!id) {
+    if (!id || typeof isActive === 'undefined') {
       return NextResponse.json(
-        { error: "ID is required." },
+        { error: "ID and isActive status are required." },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -210,7 +231,7 @@ export async function DELETE(req: NextRequest) {
 
     if (existing.publicId) {
       try {
-        await cloudinary.uploader.destroy(existing.publicId);
+        await cloudinary.uploader.destroy(existing.publicId); 
       } catch (err: any) {
         console.error("⚠️ Cloudinary delete failed:", err.message);
       }
