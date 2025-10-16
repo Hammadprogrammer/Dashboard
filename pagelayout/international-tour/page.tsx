@@ -3,8 +3,19 @@
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
+import {
+  PencilIcon,
+  TrashIcon,
+  PlusCircleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  StarIcon, 
+  PhotoIcon,
+  GlobeAsiaAustraliaIcon, // New icon for International
+  QueueListIcon, // New icon for Slider Images
+} from "@heroicons/react/24/outline";
 
-// Interfaces (Define your data structure)
+// --- Interfaces (Define your data structure) ---
 interface SliderImage {
   id: number;
   url: string;
@@ -16,11 +27,19 @@ interface Tour {
   title: string;
   description: string;
   isActive: boolean;
-  backgroundUrl?: string;
-  sliderImages: SliderImage[];
+  backgroundUrl?: string; // Optional background URL
+  sliderImages: SliderImage[]; // Array of slider images
 }
 
+// --- Status Messages Map (Copied from Hajj Dashboard) ---
+const STATUS_MESSAGES = {
+  success: { title: "Success 🎉", iconColor: "text-green-500" },
+  error: { title: "Error ❌", iconColor: "text-red-500" },
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-500" },
+} as const;
+
 export default function InternationalTourDashboard() {
+  // --- State Management ---
   const [tours, setTours] = useState<Tour[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -32,83 +51,101 @@ export default function InternationalTourDashboard() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // --- Loading States ---
-  const [loading, setLoading] = useState(false); 
-  const [fetching, setFetching] = useState(true); 
+  const [isProcessing, setIsProcessing] = useState(false); // Renamed for consistency
+  const [isLoading, setIsLoading] = useState(true); // Renamed for consistency
 
   // Keys used to force re-render and clear file inputs
   const [backgroundKey, setBackgroundKey] = useState(0);
   const [sliderKey, setSliderKey] = useState(0);
 
-  // --- Modal State ---
+  // --- Refs ---
+  const formRef = useRef<HTMLFormElement | null>(null); // Consistent ref naming
+  const backgroundInputRef = useRef<HTMLInputElement | null>(null);
+  const sliderInputRef = useRef<HTMLInputElement | null>(null);
+
+  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
     "success"
   );
-
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- useRef for form scrolling ---
-  const formRef = useRef<HTMLFormElement>(null);
-
+  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
 
-  // ✅ Fetch tours
+  // ✅ Fetch tours (renamed loading state variables)
   const fetchTours = async () => {
     try {
-      setFetching(true);
+      setIsLoading(true);
       const res = await fetch("/api/international-tour", { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to fetch tours");
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to fetch tours");
+      }
+      const data: Tour[] = await res.json();
       setTours(data);
     } catch (err) {
-      console.error("❌ Fetch error:", err);
-      showModal("⚠️ Failed to fetch tours", "error");
+      const error = err as Error;
+      console.error("❌ Fetch Error:", error.message);
+      setTours([]);
+      showModal(`⚠️ Error fetching tours: ${error.message}`, "error");
     } finally {
-      setFetching(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
       fetchTours();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ✅ Reset form
   const resetForm = () => {
+    setEditingId(null);
     setTitle("");
     setDescription("");
     setImageType("background");
     setBackgroundFile(null);
     setSliderFiles([]);
     setIsActive(true);
-    setEditingId(null);
-    setBackgroundKey(prev => prev + 1); // Clears background input
-    setSliderKey(prev => prev + 1); // Clears slider input
+    // Use refs to clear file inputs directly
+    if (backgroundInputRef.current) backgroundInputRef.current.value = "";
+    if (sliderInputRef.current) sliderInputRef.current.value = "";
   };
+
+  // --- Image Handlers ---
+  const onBackgroundFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBackgroundFile(e.target.files?.[0] || null);
+  }
+
+  const onSliderFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSliderFiles(e.target.files ? Array.from(e.target.files) : []);
+  }
 
   // ✅ Handle Submit (Create or Update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsProcessing(true);
 
     if (!title.trim() || !description.trim()) {
-      setLoading(false);
+      setIsProcessing(false);
       return showModal("⚠️ Title and Description are required", "warning");
     }
     
     // Validation for new tour (no editingId)
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
-            setLoading(false);
+            setIsProcessing(false);
             return showModal("⚠️ Please upload a background image for a new tour", "warning");
         }
         if (imageType === "slider" && sliderFiles.length === 0) {
-            setLoading(false);
+            setIsProcessing(false);
             return showModal("⚠️ Please upload at least one slider image for a new tour", "warning");
         }
     }
@@ -122,7 +159,7 @@ export default function InternationalTourDashboard() {
       formData.append("id", String(editingId));
     }
     
-    // Append files
+    // Append files - only append if a new file is selected
     if (imageType === "background" && backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
@@ -138,24 +175,22 @@ export default function InternationalTourDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      // ✅ FIX CONFIRMED: Corrected and enhanced success message logic
       let successMessage = editingId 
-        ? "✅ Tour updated!" 
+        ? "✅ Tour updated successfully!" 
         : backgroundFile
-          ? "✅ New Background Tour added! (Old one was deleted)" 
-          : "✅ Tour added!";
+          ? "✅ New Background Tour saved!" 
+          : "✅ New Slider Tour saved!";
 
       showModal(successMessage, "success");
       
       resetForm();
       fetchTours();
     } catch (err) {
-      console.error("❌ Save error:", err);
-      // Display the error message returned from the server (if available)
-      const errMsg = (err instanceof Error && err.message) ? err.message : "Failed to save tour";
-      showModal("❌ " + errMsg, "error");
+      const error = err as Error;
+      console.error("❌ Save Error:", error.message);
+      showModal(`⚠️ Error saving tour: ${error.message}`, "error");
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -165,18 +200,20 @@ export default function InternationalTourDashboard() {
     setTitle(tour.title);
     setDescription(tour.description);
     setIsActive(tour.isActive);
-    // Determine image type based on existing data
+    
+    // Clear file inputs, we only allow *replacing* during edit
+    setBackgroundFile(null); 
+    setSliderFiles([]);
+
+    // Determine image type based on existing data to pre-select dropdown
     if (tour.backgroundUrl) {
       setImageType("background");
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
+    } else {
+      // Default if neither exists (shouldn't happen on a valid tour)
+      setImageType("background");
     }
-    
-    // Clear file inputs when entering edit mode
-    setBackgroundFile(null); 
-    setSliderFiles([]);
-    setBackgroundKey(prev => prev + 1); 
-    setSliderKey(prev => prev + 1); 
 
     // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -191,292 +228,249 @@ export default function InternationalTourDashboard() {
   // ✅ Delete execution
   const handleDelete = async () => {
     if (!deleteId) return;
+    setIsProcessing(true);
     try {
-      setLoading(true);
       const res = await fetch(`/api/international-tour?id=${deleteId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete");
-      showModal("🗑️ Tour deleted", "success");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete tour");
+
+      showModal("🗑️ Tour deleted successfully!", "success");
       setDeleteId(null);
       fetchTours();
     } catch (err) {
-      console.error("❌ Delete error:", err);
-      const errMsg = (err instanceof Error && err.message) ? err.message : "Failed to delete tour";
-      showModal("❌ " + errMsg, "error");
+      const error = err as Error;
+      console.error("❌ Delete Error:", error.message);
+      showModal(`⚠️ Could not delete tour: ${error.message}`, "error");
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
       setIsDeleteOpen(false);
     }
   };
 
   // ✅ Toggle active/inactive
-  const toggleActive = async (id: number, current: boolean) => {
+  const toggleActive = async (tour: Tour) => {
+    setIsProcessing(true);
     try {
-      setLoading(true);
       const res = await fetch("/api/international-tour", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isActive: !current }),
+        body: JSON.stringify({ id: tour.id, isActive: !tour.isActive }),
       });
-      if (!res.ok) throw new Error("Failed to toggle");
-      showModal("✅ Status updated!", "success");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to toggle active");
+      showModal("✅ Status updated successfully!", "success");
       fetchTours();
     } catch (err) {
-      console.error("❌ Toggle error:", err);
-      const errMsg = (err instanceof Error && err.message) ? err.message : "Could not update status";
-      showModal("⚠️ " + errMsg, "error");
+      const error = err as Error;
+      console.error("❌ Toggle Error:", error.message);
+      showModal(`⚠️ Could not update status: ${error.message}`, "error");
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
+  
+  // Helper to determine active status color
+  const isAnyActionDisabled = isProcessing || isLoading;
 
   // Filter tours for display sections
   const backgroundTours = tours.filter(tour => tour.backgroundUrl);
   const sliderTours = tours.filter(tour => tour.sliderImages.length > 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center" id="international-tour">🌍 International Tours Dashboard</h1>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
+      {/* Page Title */}
+      <h1
+        className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center"
+        id="international-tour-heading"
+      >
+        <GlobeAsiaAustraliaIcon className="h-8 w-8 mr-2" /> International Tours Dashboard
+      </h1>
 
-      {/* --- GLOBAL LOADER --- */}
-      {(loading || fetching) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
+      {/* Loading/Processing Overlay (Consistent Hajj UI) */}
+      {(isProcessing || isLoading) && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400"></div>
+            <p className="mt-4 text-white font-semibold">
+              {isLoading ? "Loading Tours..." : "Processing Request..."}
+            </p>
+          </div>
         </div>
       )}
 
-      {/* -------------------- FORM SECTION -------------------- */}
+      {/* --- Upload / Edit Form (Consistent Hajj UI) --- */}
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
         ref={formRef}
+        className="space-y-6 bg-gray-900 text-white shadow-2xl rounded-xl p-6 md:p-8 mb-10 border border-gray-700"
       >
+        <h2 className="text-xl font-bold text-yellow-400 flex items-center">
+          {editingId ? "Edit International Tour" : "Add New International Tour"}
+          <PlusCircleIcon className="h-5 w-5 ml-2" />
+        </h2>
+        
+        {/* Title Input */}
         <input
           type="text"
-          placeholder="Tour Title"
+          placeholder="Tour Title (e.g., European Grand Tour)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
-          disabled={loading}
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
+          disabled={isProcessing}
+          required
         />
-
+        
+        {/* Description Input */}
         <textarea
-          placeholder="Description"
+          placeholder="Detailed Description of the Tour"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none"
-          disabled={loading}
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none transition-colors"
+          disabled={isProcessing}
+          required
         />
-
+        
         {/* Image Type Selector (Disabled during edit) */}
         <select
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "slider")}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
-          disabled={!!editingId || loading}
+          // Category/Type is fixed when editing an existing item
+          disabled={editingId !== null || isProcessing} 
+          className={`border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors cursor-pointer ${
+            editingId !== null ? "opacity-60 cursor-not-allowed" : ""
+          }`}
         >
-          <option value="background">Background Image</option>
-          <option value="slider">Slider Images</option>
+          <option value="background">Background Image (Homepage Feature)</option>
+          <option value="slider">Slider Images (Tour Gallery)</option>
         </select>
-
-        {imageType === "background" && (
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setBackgroundFile(e.target.files?.[0] || null)}
-            className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={backgroundKey} 
-            disabled={loading}
-          />
+        {editingId !== null && (
+            <p className="text-xs text-gray-400">Image Type is fixed when editing an existing tour.</p>
         )}
 
-        {imageType === "slider" && (
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) =>
-              setSliderFiles(e.target.files ? Array.from(e.target.files) : [])
-            }
-            className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-            key={sliderKey}
-            disabled={loading}
-          />
+        {/* File Input */}
+        {imageType === "background" ? (
+            // Background Image File Input
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
+                <label className="text-gray-400 flex-shrink-0 flex items-center">
+                    <PhotoIcon className="h-5 w-5 mr-2" /> 
+                    {editingId ? "Replace Background (Optional)" : "Upload Background Image"}
+                </label>
+                <input
+                    type="file"
+                    ref={backgroundInputRef}
+                    accept="image/*"
+                    onChange={onBackgroundFileChange}
+                    disabled={isProcessing}
+                    className="w-full md:w-auto file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 transition-colors cursor-pointer text-sm text-gray-300"
+                />
+            </div>
+        ) : (
+            // Slider Images File Input
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
+                <label className="text-gray-400 flex-shrink-0 flex items-center">
+                    <QueueListIcon className="h-5 w-5 mr-2" /> 
+                    {editingId ? "Upload New Slider Images (Optional)" : "Upload Slider Images (Multiple)"}
+                </label>
+                <input
+                    type="file"
+                    ref={sliderInputRef}
+                    accept="image/*"
+                    multiple
+                    onChange={onSliderFilesChange}
+                    disabled={isProcessing}
+                    className="w-full md:w-auto file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 transition-colors cursor-pointer text-sm text-gray-300"
+                />
+            </div>
         )}
 
-        <div className="flex gap-4">
+        {/* Form Actions */}
+        <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            disabled={loading}
-            className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
+            disabled={isProcessing || !title.trim() || !description.trim() || (editingId === null && ((imageType === 'background' && !backgroundFile) || (imageType === 'slider' && sliderFiles.length === 0)))}
+            className="bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold w-full hover:bg-yellow-600 disabled:opacity-50 transition-colors shadow-lg"
           >
-            {loading ? "Saving..." : editingId ? "Update Tour" : "Save Tour"}
+            {isProcessing ? "Processing..." : editingId ? "Update Tour" : "Save New Tour"}
           </button>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
-              disabled={loading}
+              disabled={isProcessing}
+              className="bg-gray-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-600 disabled:opacity-50 transition-colors"
             >
-              Cancel
+              Cancel Edit
             </button>
           )}
         </div>
       </form>
 
-      {/* -------------------- LIST SECTION -------------------- */}
-      {!fetching && tours.length === 0 ? (
-        <p className="text-center text-gray-500">No international packages available.</p>
+      {/* --- Packages List --- */}
+
+      
+      {!isLoading && tours.length === 0 ? (
+        <p className="text-center text-gray-500 p-10 bg-gray-900 rounded-xl">
+          No international tours have been created yet.
+        </p>
       ) : (
         <>
-          {/* Background Tours */}
-          {backgroundTours.length > 0 && (
-            <div className="mb-10">
-              <h2 className="text-2xl font-bold mb-4 text-center">Background Image Tours (Max 1)</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {backgroundTours.map((tour) => (
-                  <div
-                    key={tour.id}
-                    className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
-                  >
-                    <h3 className="font-bold text-lg">{tour.title}</h3>
-                    <p className="text-gray-300 mb-2 line-clamp-3">{tour.description}</p>
-                    <img
-                      src={tour.backgroundUrl}
-                      alt={tour.title}
-                      className="w-full h-56 object-cover rounded"
-                    />
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Link href="#international-tour">
-                      <button
-                        onClick={() => handleEdit(tour)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
-                      >
-                        Edit
-                      </button>
-                      </Link>
-                      <button
-                        onClick={() => confirmDelete(tour.id)}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => toggleActive(tour.id, tour.isActive)}
-                        className={`px-4 py-1 rounded disabled:opacity-50 ${
-                          tour.isActive
-                            ? "bg-green-500 hover:bg-green-600"
-                            : "bg-gray-500 hover:bg-gray-600"
-                        }`}
-                        disabled={loading || !!editingId}
-                      >
-                        {tour.isActive ? "Active ✅" : "Inactive ❌"}
-                      </button>
+            {/* Background Tours Section */}
+            {backgroundTours.length > 0 && (
+                <div className="mb-10">
+                    <h3 className="text-xl font-semibold text-yellow-400 mb-4 flex items-center">
+                        <PhotoIcon className="h-5 w-5 mr-2" /> Background Tours ({backgroundTours.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {backgroundTours.map((tour) => (
+                            <TourCard key={tour.id} tour={tour} isAnyActionDisabled={isAnyActionDisabled} toggleActive={toggleActive} handleEdit={handleEdit} confirmDelete={confirmDelete} />
+                        ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+            )}
 
-          {/* Slider Tours */}
-          {sliderTours.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4 text-center">Slider Image Tours</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {sliderTours.map((tour) => (
-                  <div
-                    key={tour.id}
-                    className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
-                  >
-                    <h3 className="font-bold text-lg">{tour.title}</h3>
-                    <p className="text-gray-300 mb-2 line-clamp-3">{tour.description}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {tour.sliderImages.slice(0, 4).map((img) => (
-                        <img
-                          key={img.id}
-                          src={img.url}
-                          alt=""
-                          className="h-28 w-full object-cover rounded"
-                        />
-                      ))}
+            {/* Slider Tours Section */}
+            {sliderTours.length > 0 && (
+                <div className="mb-10">
+                    <h3 className="text-xl font-semibold text-yellow-400 mb-4 flex items-center">
+                        <QueueListIcon className="h-5 w-5 mr-2" /> Slider Tours ({sliderTours.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {sliderTours.map((tour) => (
+                            <TourCard key={tour.id} tour={tour} isAnyActionDisabled={isAnyActionDisabled} toggleActive={toggleActive} handleEdit={handleEdit} confirmDelete={confirmDelete} />
+                        ))}
                     </div>
-                    <div className="flex justify-between gap-2 mt-4">
-                       <Link href="#international-tour">
-                      <button
-                        onClick={() => handleEdit(tour)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
-                      >
-                        Edit
-                      </button>
-                      </Link>
-                      <button
-                        onClick={() => confirmDelete(tour.id)}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || !!editingId}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => toggleActive(tour.id, tour.isActive)}
-                        className={`px-4 py-1 rounded disabled:opacity-50 ${
-                          tour.isActive
-                            ? "bg-green-500 hover:bg-green-600"
-                            : "bg-gray-500 hover:bg-gray-600"
-                        }`}
-                        disabled={loading || !!editingId}
-                      >
-                        {tour.isActive ? "Active ✅" : "Inactive ❌"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+            )}
         </>
       )}
 
-      {/* -------------------- MODALS -------------------- */}
-      {/* Success/Error Modal */}
-       <Transition appear show={isModalOpen} as={Fragment}>
+      {/* --- MODAL: Status Message (Consistent Hajj UI) --- */}
+      <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => !loading && setIsModalOpen(false)}
+          onClose={() => setIsModalOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+            <Dialog.Panel className="w-full max-w-md rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
               <Dialog.Title
-                className={`text-lg font-bold ${
-                  modalType === "success"
-                    ? "text-green-600"
-                    : modalType === "error"
-                    ? "text-red-600"
-                    : "text-yellow-600"
+                className={`text-2xl font-extrabold ${
+                  STATUS_MESSAGES[modalType].iconColor
                 }`}
               >
-                {modalType === "success"
-                  ? "Success 🎉"
-                  : modalType === "error"
-                  ? "Error ❌"
-                  : "Warning ⚠️"}
+                {STATUS_MESSAGES[modalType].title}
               </Dialog.Title>
-              <p className="mt-2">{modalMessage}</p>
-              <div className="mt-4">
+              <p className="mt-4 text-lg text-gray-300">{modalMessage}</p>
+              <div className="mt-6">
                 <button
-                  className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsModalOpen(false)}
-                  disabled={loading}
                 >
-                  OK
+                  Close
                 </button>
               </div>
             </Dialog.Panel>
@@ -484,34 +478,36 @@ export default function InternationalTourDashboard() {
         </Dialog>
       </Transition>
 
-      {/* Delete Confirmation Modal */}
+      {/* --- MODAL: Delete Confirmation (Consistent Hajj UI) --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"
           className="relative z-50"
-          onClose={() => !loading && setIsDeleteOpen(false)}
+          onClose={() => !isProcessing && setIsDeleteOpen(false)}
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
-              <Dialog.Title className="text-lg font-bold text-red-600">
-                Confirm Delete
+            <Dialog.Panel className="w-full max-w-sm rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
+              <Dialog.Title className="text-xl font-bold text-red-500">
+                Confirm Deletion
               </Dialog.Title>
-              <p className="mt-2">Are you sure you want to delete this tour? This action cannot be undone.</p>
-              <div className="mt-4 flex justify-center gap-4">
+              <p className="mt-2 text-gray-300">
+                Are you absolutely sure you want to delete this tour? This action cannot be undone.
+              </p>
+              <div className="mt-6 flex justify-center gap-4">
                 <button
-                  className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  className="bg-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsDeleteOpen(false)}
-                  disabled={loading}
+                  disabled={isProcessing}
                 >
                   Cancel
                 </button>
                 <button
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  className="bg-red-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
                   onClick={handleDelete}
-                  disabled={loading}
+                  disabled={isProcessing}
                 >
-                  {loading ? "Deleting..." : "Delete"}
+                  {isProcessing ? "Deleting..." : "Delete Permanently"}
                 </button>
               </div>
             </Dialog.Panel>
@@ -520,4 +516,86 @@ export default function InternationalTourDashboard() {
       </Transition>
     </div>
   );
+}
+
+// --- Helper Component for consistent Tour Card UI ---
+interface TourCardProps {
+    tour: Tour;
+    isAnyActionDisabled: boolean;
+    toggleActive: (tour: Tour) => Promise<void>;
+    handleEdit: (tour: Tour) => void;
+    confirmDelete: (id: number) => void;
+}
+
+const TourCard: React.FC<TourCardProps> = ({ tour, isAnyActionDisabled, toggleActive, handleEdit, confirmDelete }) => {
+    const isBackground = !!tour.backgroundUrl;
+    const imageUrl = isBackground ? tour.backgroundUrl : (tour.sliderImages[0]?.url || "/placeholder.png");
+
+    return (
+        <div
+            className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border ${
+                tour.isActive ? "border-green-600" : "border-gray-700 opacity-80"
+            }`}
+        >
+            <div className="relative">
+                <img
+                    src={imageUrl}
+                    alt={tour.title}
+                    className="w-full h-48 object-cover rounded-lg mb-3"
+                    onError={(e) => {
+                        e.currentTarget.src = "/placeholder.png";
+                        e.currentTarget.onerror = null;
+                    }}
+                />
+
+            </div>
+            
+            <div className="flex justify-between items-start mb-2">
+                <h3 className="font-extrabold text-xl text-yellow-400 line-clamp-2">
+                    {tour.title}
+                </h3>
+            </div>
+            
+            <p className="text-sm text-gray-300 line-clamp-3 mb-3">{tour.description}</p>
+            
+            {/* Action Buttons (Consistent Hajj UI) */}
+            <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
+                <button
+                    onClick={() => toggleActive(tour)}
+                    disabled={isAnyActionDisabled}
+                    className={`px-3 py-1 rounded-full text-xs font-bold disabled:opacity-50 transition-colors flex items-center ${
+                        tour.isActive
+                          ? "bg-green-600 hover:bg-green-700 text-white"
+                          : "bg-red-600 hover:bg-red-700 text-white"
+                    }`}
+                >
+                    {tour.isActive ? (
+                        <CheckCircleIcon className="h-4 w-4 mr-1" />
+                    ) : (
+                        <XCircleIcon className="h-4 w-4 mr-1" />
+                    )}
+                    {tour.isActive ? "Active" : "Inactive"}
+                </button>
+                
+                <div className="flex gap-2">
+                    <Link href="#international-tour-heading" passHref legacyBehavior>
+                        <button
+                            onClick={() => handleEdit(tour)}
+                            disabled={isAnyActionDisabled}
+                            className="bg-yellow-500 text-black px-3 py-1 rounded-lg text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center"
+                        >
+                            <PencilIcon className="h-4 w-4" />
+                        </button>
+                    </Link>
+                    <button
+                        onClick={() => confirmDelete(tour.id)}
+                        disabled={isAnyActionDisabled}
+                        className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 flex items-center"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
