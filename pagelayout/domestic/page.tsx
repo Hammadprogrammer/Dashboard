@@ -1,16 +1,16 @@
-// DomesticDashboardPage.tsx
+// DomesticDashboardPage.tsx - Updated with better error messages and logic.
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import Link from "next/link"; 
+import Link from "next/link";
 import {
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
   XCircleIcon,
   MapPinIcon,
-  PhotoIcon, 
-  PlusCircleIcon, 
+  PhotoIcon,
+  PlusCircleIcon,
 } from "@heroicons/react/24/outline";
 
 // --- Interface ---
@@ -27,9 +27,9 @@ const categories: Package["category"][] = ["Economic", "Standard", "Premium"];
 
 // --- Status Messages Map ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" }, 
+  success: { title: "Success 🎉", iconColor: "text-green-500" },
   error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, 
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" },
 } as const;
 
 
@@ -47,7 +47,7 @@ export default function DomesticDashboardPage() {
 
   // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const formRef = useRef<HTMLFormElement | null>(null); 
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,17 +64,20 @@ export default function DomesticDashboardPage() {
     setModalType(type);
     setIsModalOpen(true);
   };
-  
+
   // --- Form Handlers ---
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    // Allow numbers, dot, and up to two decimal places
     if (/^\d*(\.\d{0,2})?$/.test(val) || val === "") setPrice(val);
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] || null;
     setFile(selected);
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview && !packages.some(p => p.imageUrl === preview)) {
+        URL.revokeObjectURL(preview);
+    }
     setPreview(selected ? URL.createObjectURL(selected) : null);
   }
 
@@ -86,10 +89,12 @@ export default function DomesticDashboardPage() {
     setPreview(pkg.imageUrl);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    formRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll to the form
+    formRef.current?.scrollIntoView({ behavior: "smooth" }); 
   };
-  
+
   const resetForm = () => {
+    // Revoke object URL if it's not an existing package image
     if (preview && !packages.some(p => p.imageUrl === preview)) {
         URL.revokeObjectURL(preview);
     }
@@ -117,7 +122,8 @@ export default function DomesticDashboardPage() {
     if (!id && !file)
       return showModal("⚠️ Please upload an image for the new package", "warning");
     if (id && !file && !preview)
-        return showModal("⚠️ Cannot remove image during update. Upload a replacement or keep existing.", "warning");
+        return showModal("⚠️ Cannot proceed with update: Image required.", "warning");
+
 
     setIsProcessing(true);
     try {
@@ -130,11 +136,12 @@ export default function DomesticDashboardPage() {
       formData.append("isActive", "true");
 
       const res = await fetch("/api/domestic", { method: "POST", body: formData });
-      
+
       const data = await res.json();
       if (!res.ok) {
-        // Use the error message from the backend if available
-        throw new Error(data.error || "Failed to save package due to an unknown error.");
+        // IMPORTANT FIX: Use the detailed error from the API route for a better user experience
+        const errorMessage = data.error || "Failed to save package due to an unknown error.";
+        throw new Error(errorMessage);
       }
 
       showModal(id ? "✅ Package updated successfully!" : "✅ Package saved/replaced successfully!", "success");
@@ -143,7 +150,7 @@ export default function DomesticDashboardPage() {
     } catch (err) {
       const error = err as Error;
       console.error("❌ Save Error:", error.message);
-      // FIX: Use the detailed error from the API route
+      // Show the specific error message to the user
       showModal(`⚠️ Error saving package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
@@ -154,7 +161,7 @@ export default function DomesticDashboardPage() {
   const fetchPackages = async () => {
     try {
       setIsProcessing(true);
-      const res = await fetch("/api/domestic"); 
+      const res = await fetch("/api/domestic");
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
       setPackages(data);
@@ -172,7 +179,7 @@ export default function DomesticDashboardPage() {
     fetchPackages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   // --- CRUD Operations ---
   const toggleActive = async (pkg: Package) => {
     setIsProcessing(true);
@@ -222,14 +229,14 @@ export default function DomesticDashboardPage() {
       setDeleteId(null);
     }
   };
-  
+
   const getCategoryColor = (cat: Package["category"]) => {
       if (cat === "Premium") return "bg-red-600";
       if (cat === "Standard") return "bg-blue-600";
       if (cat === "Economic") return "bg-green-600";
       return "bg-gray-500";
   }
-  
+
   const isAnyActionDisabled = isProcessing || !!id;
 
   // --- Render ---
@@ -260,7 +267,7 @@ export default function DomesticDashboardPage() {
             {id ? "Edit Domestic Package" : "Add New Domestic Package"}
             <PlusCircleIcon className="h-5 w-5 ml-2" />
         </h2>
-        
+
         {/* Title Input */}
         <input
           type="text"
@@ -307,7 +314,7 @@ export default function DomesticDashboardPage() {
         {/* File Input */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
             <label className="text-gray-400 flex-shrink-0 flex items-center">
-                <PhotoIcon className="h-5 w-5 mr-2" /> 
+                <PhotoIcon className="h-5 w-5 mr-2" />
                 {id ? "Replace Image (Optional)" : "Upload Package Image"}
             </label>
             <input
@@ -329,6 +336,7 @@ export default function DomesticDashboardPage() {
               alt="Package Preview"
               className="w-full h-48 object-cover rounded-lg border border-gray-600"
               onError={(e) => {
+                // Fallback in case of broken image URL
                 e.currentTarget.src = "/placeholder.png";
                 e.currentTarget.onerror = null;
               }}
@@ -373,7 +381,7 @@ export default function DomesticDashboardPage() {
             <div
               key={pkg.id}
               className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border ${
-                pkg.isActive ? "border-yellow-600" : "border-gray-700 opacity-80" 
+                pkg.isActive ? "border-yellow-600" : "border-gray-700 opacity-80"
               }`}
             >
               <div className="relative">
@@ -390,7 +398,7 @@ export default function DomesticDashboardPage() {
                     {pkg.category.toUpperCase()}
                 </span>
               </div>
-              
+
               <h2 className="font-extrabold text-xl text-yellow-400 line-clamp-2">
                 {pkg.title}
               </h2>
@@ -415,15 +423,17 @@ export default function DomesticDashboardPage() {
                   )}
                   {pkg.isActive ? "Active" : "Inactive"}
                 </button>
-                
+
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => handleEdit(pkg)}
-                        disabled={isAnyActionDisabled}
-                        className="bg-yellow-500 text-black px-3 py-1 rounded-lg text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center"
-                    >
-                        <PencilIcon className="h-4 w-4" />
-                    </button>
+                    <Link href="#domestic" onClick={(e) => e.preventDefault()}>
+                        <button
+                            onClick={() => handleEdit(pkg)}
+                            disabled={isAnyActionDisabled}
+                            className="bg-yellow-500 text-black px-3 py-1 rounded-lg text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center"
+                        >
+                            <PencilIcon className="h-4 w-4" />
+                        </button>
+                    </Link>
 
                     <button
                         onClick={() => confirmDelete(pkg.id)}
@@ -439,7 +449,7 @@ export default function DomesticDashboardPage() {
         </div>
       )}
 
-      {/* --- MODAL: Status Message (Kept consistent with Umrah) --- */}
+      {/* --- MODAL: Status Message --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -470,7 +480,7 @@ export default function DomesticDashboardPage() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation (Kept consistent with Umrah) --- */}
+      {/* --- MODAL: Delete Confirmation --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

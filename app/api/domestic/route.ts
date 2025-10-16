@@ -1,38 +1,23 @@
 // api/domestic/route.ts - FINAL & STABLE FIX: Using Base64 upload for reliability in production/live environment.
 
 import { NextRequest, NextResponse } from "next/server";
-import { v2 as cloudinary } from "cloudinary"; // Make sure to import v2 as cloudinary
+import { v2 as cloudinary } from "cloudinary"; // Make sure to use v2
 import prisma from "@/lib/prisma";
 
-// --- Interface (Required for Build Success) ---
-interface Package {
-  id: number;
-  title: string;
-  price: number;
-  imageUrl: string;
-  isActive: boolean;
-  category: "Economic" | "Standard" | "Premium";
-  publicId: string;
-}
+// --- Configuration for Serverless Function ---
+export const config = {
+  // Set maxDuration for Vercel/Next.js serverless function to prevent timeout (max is 60)
+  maxDuration: 60,
+};
 
+// --- Headers for CORS ---
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ⚠️ PRODUCTION FIX: Next.js API Route Config
-// Disables default body parser which is mandatory when handling large files via req.formData()
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-  // Set maxDuration for Vercel/Next.js serverless function to prevent timeout (max is 60)
-  maxDuration: 60, 
-};
-
-// --- HELPER FUNCTION: Base64 Upload for Stability ---
-// This method is generally more robust in Next.js Serverless environments than streaming.
+// --- HELPER FUNCTION: Base64 Upload for Stability (The Fix) ---
 const uploadImageToBase64 = async (file: File) => {
     // 1. Convert File to ArrayBuffer, then to Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -45,7 +30,7 @@ const uploadImageToBase64 = async (file: File) => {
     const uploadRes = await cloudinary.uploader.upload(base64Image, {
         folder: "domestic-packages",
         resource_type: "image",
-        // Optional: Apply transformation for consistency
+        // Consistent transformation for better presentation
         transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
     });
 
@@ -55,14 +40,12 @@ const uploadImageToBase64 = async (file: File) => {
     };
 };
 
-
 // ---------------- GET ----------------
 export async function GET() {
   try {
     const packages = await prisma.domesticPackage.findMany({
       orderBy: { createdAt: "desc" },
     });
-
     return NextResponse.json(packages, { headers: corsHeaders });
   } catch (error: any) {
     console.error("❌ GET /api/domestic error:", error.message);
@@ -76,7 +59,6 @@ export async function GET() {
 // ---------------- POST (CREATE + UPDATE with Image) ----------------
 export async function POST(req: NextRequest) {
   try {
-    // req.formData is the correct way to handle file uploads in Next.js App Router
     const formData = await req.formData();
 
     const id = formData.get("id") as string | null;
@@ -102,6 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
+    // Ensure category is normalized to correct capitalization for Prisma type
     const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
     
     if (!["Economic", "Standard", "Premium"].includes(normalizedCategory)) {
@@ -132,7 +115,6 @@ export async function POST(req: NextRequest) {
       if (existingPackage) {
         console.log(`Existing package found for category '${normalizedCategory}'. Replacing it.`);
         
-        // Delete old image from Cloudinary
         if (existingPackage.publicId) {
           try {
             await cloudinary.uploader.destroy(existingPackage.publicId); 
@@ -140,7 +122,6 @@ export async function POST(req: NextRequest) {
             console.error("⚠️ Failed to delete old image from Cloudinary during replacement:", err.message);
           }
         }
-        // Delete old package from database
         await prisma.domesticPackage.delete({
           where: { id: existingPackage.id },
         });
@@ -164,7 +145,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Perform Cloudinary Upload using Base64 method
+      // Perform Cloudinary Upload using Base64 method (The Fix)
       try {
         const uploadRes = await uploadImageToBase64(file);
         imageUrl = uploadRes.secure_url;
@@ -172,7 +153,6 @@ export async function POST(req: NextRequest) {
 
       } catch (err: any) {
         console.error("❌ Cloudinary upload failed:", err.message);
-        // Throw a specific error that the frontend can catch
         return NextResponse.json(
           { error: "Image upload failed. Cloudinary service error.", details: err.message },
           { status: 500, headers: corsHeaders }
@@ -191,13 +171,12 @@ export async function POST(req: NextRequest) {
         }
     }
 
-
     // --- 4. Save to Database ---
     let saved;
     const updateData = {
         title,
         price,
-        category: normalizedCategory as Package["category"], 
+        category: normalizedCategory, 
         isActive,
         ...(imageUrl ? { imageUrl, publicId } : {}), // Update image only if uploaded
     };
@@ -209,7 +188,6 @@ export async function POST(req: NextRequest) {
       });
     } else {
        if (!imageUrl || !publicId) {
-          // Should not happen, but safe check
           throw new Error("Missing image data for new package creation after upload.");
        }
 
