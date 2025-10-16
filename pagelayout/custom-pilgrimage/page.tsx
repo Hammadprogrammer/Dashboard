@@ -335,21 +335,10 @@ export default function CustomPilgrimageDashboard() {
             />
         </div>
         
-        {/* Active Toggle */}
-        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-            <input
-                type="checkbox"
-                id="isActive"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="h-5 w-5 text-yellow-400 bg-gray-700 border-gray-600 rounded focus:ring-yellow-400 cursor-pointer"
-                disabled={isProcessing}
-            />
-            <label htmlFor="isActive" className="text-gray-300 font-medium">Entry is Active / Visible on Website</label>
-        </div>
+
 
         {/* Image Input and Preview */}
-        <div className="p-4 border-2 border-dashed border-yellow-400/50 rounded-xl space-y-4 bg-gray-800">
+        <div className="p-4 border-2  border-yellow-400/50 rounded-xl space-y-4 bg-gray-800">
           <p className="text-sm font-semibold text-yellow-400 flex items-center space-x-2">
             <CubeTransparentIcon className="h-5 w-5"/><span>Hero Image Upload (Will replace existing on update)</span>
           </p>
@@ -412,11 +401,7 @@ export default function CustomPilgrimageDashboard() {
         </div>
       </form>
 
-      {/* // ----------------------------------------------------------------------------------
-      // --- LIST SECTION ---
-      // ----------------------------------------------------------------------------------
-      */}
-      <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b-2 border-yellow-400/50 pb-3">Current Data Entries ({data.length})</h2>
+
 
 
       {isLoading && data.length === 0 ? (
@@ -428,7 +413,7 @@ export default function CustomPilgrimageDashboard() {
             {data.map((entry) => (
               <div
                 key={entry.id}
-                className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-shadow hover:shadow-yellow-400/20 border ${
+                className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-shadow  border ${
                     entry.isActive ? "border-yellow-600" : "border-gray-700 opacity-80"
                 }`}
               >
