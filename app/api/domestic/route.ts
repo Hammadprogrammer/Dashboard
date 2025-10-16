@@ -31,7 +31,7 @@ const uploadImageToBase64 = async (file: File) => {
         folder: "domestic-packages",
         resource_type: "image",
         // Consistent transformation for better presentation
-        transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
+        transformation: [{ width: 800, height: 600, gravity: "center" }], 
     });
 
     return {
