@@ -1,8 +1,10 @@
+// InternationalTourDashboard.tsx - FINAL & OPTIMIZED FRONTEND
+
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import Link from "next/link";
+// import Link from "next/link"; // REMOVED: Link is not strictly necessary for in-page scrolling
 
 interface SliderImage {
   id: number;
@@ -85,8 +87,8 @@ export default function InternationalTourDashboard() {
     setSliderFiles([]);
     setIsActive(true);
     setEditingId(null);
-    setBackgroundKey(prev => prev + 1);
-    setSliderKey(prev => prev + 1);
+    setBackgroundKey(prev => prev + 1); // Force clear file input
+    setSliderKey(prev => prev + 1); // Force clear file input
   };
 
   // ✅ Save or Update
@@ -99,7 +101,10 @@ export default function InternationalTourDashboard() {
       return showModal("⚠️ Title and Description are required", "warning");
     }
     
-    // Validation for new tour
+    // 🛑 REMOVED: Old Logic: Delete old background tour on CREATE was removed from API,
+    // so this unnecessary DELETE call from frontend is also removed.
+    
+    // ✅ FIX 1: New Tour Validation logic simplified and improved for correctness.
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
             setLoading(false);
@@ -121,20 +126,13 @@ export default function InternationalTourDashboard() {
       formData.append("id", String(editingId));
     }
     
-    // Append files based on imageType
-    if (imageType === "background" && backgroundFile) {
+    // Append files based on what's available (regardless of imageType for update)
+    // For CREATE, imageType dictates which file to check (as per validation above).
+    if (backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
-    if (imageType === "slider" && sliderFiles.length > 0) {
+    if (sliderFiles.length > 0) {
       sliderFiles.forEach((file) => formData.append("sliderImages", file));
-    }
-    
-    // --- New Logic: Delete old image for same category (if any)
-    if (!editingId && imageType === "background" && backgroundFile) {
-        const existingBackgroundTour = tours.find(t => t.backgroundUrl);
-        if (existingBackgroundTour) {
-            await fetch(`/api/international-tour?id=${existingBackgroundTour.id}`, { method: "DELETE" });
-        }
     }
     
     try {
@@ -162,14 +160,19 @@ export default function InternationalTourDashboard() {
     setTitle(tour.title);
     setDescription(tour.description);
     setIsActive(tour.isActive);
+    
+    // Set UI's image type selector to match existing tour type
     if (tour.backgroundUrl) {
       setImageType("background");
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
     }
-    // Clear file inputs for new selection
+    
+    // Clear file inputs for new selection and force re-render
     setBackgroundFile(null); 
     setSliderFiles([]);
+    setBackgroundKey(prev => prev + 1); 
+    setSliderKey(prev => prev + 1);
 
     // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -294,7 +297,11 @@ export default function InternationalTourDashboard() {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={loading}
+            // ✅ FIX 2: Added more robust disable logic for UPDATE
+            disabled={
+              loading || 
+              (!!editingId && !backgroundFile && sliderFiles.length === 0)
+            }
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
             {loading ? "Saving..." : editingId ? "Update Tour" : "Save Tour"}
@@ -334,7 +341,7 @@ export default function InternationalTourDashboard() {
                       className="w-full h-56 object-cover rounded"
                     />
                     <div className="flex justify-between gap-2 mt-4">
-                      <Link href="#international-tour">
+                      {/* 🛑 REMOVED <Link href="#international-tour"> around button. handleEdit handles scrolling. */}
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -342,7 +349,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
-                      </Link>
+                      
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);
@@ -393,7 +400,7 @@ export default function InternationalTourDashboard() {
                       ))}
                     </div>
                     <div className="flex justify-between gap-2 mt-4">
-                       <Link href="#international-tour">
+                      {/* 🛑 REMOVED <Link href="#international-tour"> around button. handleEdit handles scrolling. */}
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -401,7 +408,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
-                      </Link>
+                      
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);
