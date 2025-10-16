@@ -1,6 +1,8 @@
+// /api/testimonials/route.ts (UPDATED with Base64 upload logic)
+
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import cloudinary from "@/lib/cloudinary";
+import cloudinary from "@/lib/cloudinary"; // Assuming this correctly loads your configured Cloudinary client
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +25,7 @@ export async function GET() {
   } catch (error: any) {
     console.error("❌ GET error:", error.message);
     return NextResponse.json(
-      { error: "Failed to fetch testimonials" },
+      { error: "Failed to fetch testimonials", details: error.message },
       { status: 500, headers: corsHeaders }
     );
   }
@@ -34,15 +36,16 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const id = formData.get("id") as string | null;
-    const rating = parseFloat(formData.get("rating") as string);
+    // Use Number() for robust parsing, ensuring validation handles potential NaN
+    const rating = Number(formData.get("rating")); 
     const description = formData.get("description") as string;
     const name = formData.get("name") as string;
     const title = formData.get("title") as string;
     const imageFile = formData.get("image") as File | null;
 
-    if (!rating || !description || !name || !title) {
+    if (isNaN(rating) || !description || !name || !title) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields or invalid rating value" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -57,22 +60,26 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let imageId: string | undefined;
 
-    if (imageFile) {
+    // --- Base64 Cloudinary Upload Fix ---
+    if (imageFile && imageFile.size > 0) {
+      // 1. Convert File to a Buffer
       const buffer = Buffer.from(await imageFile.arrayBuffer());
-      const uploadRes: any = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            { folder: "testimonials" },
-            (err, result) => (err ? reject(err) : resolve(result))
-          )
-          .end(buffer);
+      // 2. Convert Buffer to a Base64 string for direct upload
+      const base64Image = `data:${imageFile.type};base64,${buffer.toString("base64")}`;
+
+      const uploadRes: any = await cloudinary.uploader.upload(base64Image, {
+        folder: "testimonials",
+        resource_type: "image",
       });
+
       imageUrl = uploadRes.secure_url;
       imageId = uploadRes.public_id;
     }
+    // ------------------------------------
 
     let savedTestimonial;
     if (id) {
+      // --- UPDATE ---
       const existing = await prisma.testimonial.findUnique({
         where: { id: parseInt(id) },
       });
@@ -84,7 +91,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (imageFile && existing.imageId) {
+      // Delete old image only if a new image was successfully uploaded
+      if (imageId && existing.imageId) { 
         await cloudinary.uploader.destroy(existing.imageId);
       }
 
@@ -95,12 +103,15 @@ export async function POST(req: NextRequest) {
           description,
           name,
           title,
-          image: imageUrl || existing.image,
-          imageId: imageId || existing.imageId,
+          // Use new values if available, otherwise keep existing
+          image: imageUrl ?? existing.image,
+          imageId: imageId ?? existing.imageId,
         },
       });
     } else {
-      if (!imageFile) {
+      // --- CREATE ---
+      // Image must be present for new entry
+      if (!imageUrl || !imageId) {
         return NextResponse.json(
           { error: "Image is required for new entry" },
           { status: 400, headers: corsHeaders }
@@ -113,8 +124,8 @@ export async function POST(req: NextRequest) {
           description,
           name,
           title,
-          image: imageUrl as string,
-          imageId: imageId as string,
+          image: imageUrl,
+          imageId: imageId,
         },
       });
     }
@@ -140,24 +151,33 @@ export async function DELETE(req: NextRequest) {
         { status: 400, headers: corsHeaders }
       );
     }
+    const parsedId = parseInt(id);
 
     const existing = await prisma.testimonial.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parsedId },
     });
-    if (existing?.imageId) {
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Testimonial not found" },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+    
+    if (existing.imageId) {
       await cloudinary.uploader.destroy(existing.imageId);
     }
     
     await prisma.testimonial.delete({
-      where: { id: parseInt(id) },
+      where: { id: parsedId },
     });
 
     return NextResponse.json({ message: "Testimonial deleted" }, { status: 200, headers: corsHeaders });
   } catch (error: any) {
     console.error("❌ DELETE error:", error.message);
     return NextResponse.json(
-      { error: "Failed to delete testimonial" },
+      { error: "Failed to delete testimonial", details: error.message },
       { status: 500, headers: corsHeaders }
     );
   }
-}   
+}
