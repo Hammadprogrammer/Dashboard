@@ -1,8 +1,11 @@
+// app/api/umrah/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
-// ✅ Common CORS headers
+// Ensure cloudinary config is done once, usually in a lib/cloudinary.ts file.
+// Assuming it's correctly configured based on your working environment.
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -12,10 +15,9 @@ const corsHeaders = {
 // ---------------- GET ----------------
 export async function GET() {
   try {
-   const packages = await prisma.umrahPackage.findMany({
-  orderBy: { createdAt: "desc" },
-});
-
+    const packages = await prisma.umrahPackage.findMany({
+      orderBy: { createdAt: "desc" },
+    });
     return NextResponse.json(packages, { headers: corsHeaders });
   } catch (error: any) {
     console.error("GET /api/umrah error:", error.message);
@@ -54,104 +56,83 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
-    const normalizedCategory = category.toLowerCase();
-
-    // 🚩 ENFORCE: If creating a NEW package, delete the existing package in that category first.
-    if (!id) {
-      const existingPackage = await prisma.umrahPackage.findFirst({
-        where: { category: normalizedCategory },
-      });
-
-      if (existingPackage) {
-        console.log(`Existing package found for category '${normalizedCategory}'. Deleting old one.`);
-        if (existingPackage.publicId) {
-          try {
-            await cloudinary.uploader.destroy(existingPackage.publicId);
-            console.log("Old image deleted from Cloudinary:", existingPackage.publicId);
-          } catch (err: any) {
-            console.error("Failed to delete old image from Cloudinary:", err.message);
-          }
-        }
-        await prisma.umrahPackage.delete({
-          where: { id: existingPackage.id },
-        });
-        console.log("🗑️ Old package deleted from database:", existingPackage.id);
-      }
-    }
+    const normalizedCategory = category; // Assuming category is already normalized (Economic, Standard, Premium)
 
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // Handle existing image deletion if updating AND uploading new file
-    if (id && file) {
-      const existing = await prisma.umrahPackage.findUnique({
-        where: { id: parseInt(id) },
-      });
-
-      if (existing?.publicId) {
-        try {
-          await cloudinary.uploader.destroy(existing.publicId);
-          console.log("🗑️ Old image deleted from Cloudinary during update:", existing.publicId);
-        } catch (err: any) {
-          console.error("Failed to delete old image from Cloudinary:", err.message);
-        }
-      }
-    }
-
-    // Handle new file upload
+    // 🔴 CORE FIX: Base64 Upload Logic
     if (file) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        try {
+            // 1. Convert File to ArrayBuffer
+            const arrayBuffer = await file.arrayBuffer();
+            // 2. Convert ArrayBuffer to Base64 String
+            const base64Image = Buffer.from(arrayBuffer).toString("base64");
+            const dataUri = `data:${file.type};base64,${base64Image}`;
 
-        const uploadRes: any = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "umrah-packages", 
-              width: 400,
-              height: 600,
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
+            // Handle existing image deletion if updating
+            if (id) {
+                const existing = await prisma.umrahPackage.findUnique({
+                    where: { id: parseInt(id) },
+                });
+                if (existing?.publicId) {
+                    await cloudinary.uploader.destroy(existing.publicId);
+                    console.log("🗑️ Old image deleted from Cloudinary during update:", existing.publicId);
+                }
             }
-          );
-          stream.end(buffer);
-        });
+            
+            // 3. Upload Base64 Data URI directly
+            const uploadRes: any = await cloudinary.uploader.upload(dataUri, {
+                folder: "umrah-packages",
+                width: 400,
+                height: 600,
+                crop: "fill" // Optional: for consistent image sizes
+            });
 
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
-      } catch (err: any) {
-        console.error("Cloudinary upload failed:", err.message);
-        return NextResponse.json(
-          { error: "Image upload failed", details: err.message },
-          { status: 500, headers: corsHeaders }
-        );
-      }
+            imageUrl = uploadRes.secure_url;
+            publicId = uploadRes.public_id;
+            
+        } catch (err: any) {
+            console.error("Cloudinary upload failed (Base64 method):", err.message);
+            return NextResponse.json(
+                { error: "Image upload failed", details: err.message },
+                { status: 500, headers: corsHeaders }
+            );
+        }
     }
-
+    
     let saved;
     if (id) {
-      // 🟢 UPDATE existing package: Category is locked in frontend, so no conflict check needed.
+      // 🟢 UPDATE existing package
       saved = await prisma.umrahPackage.update({
         where: { id: parseInt(id) },
         data: {
           title,
           price,
-          // Category is included but it's the package's original category (locked by frontend)
-          category: normalizedCategory, 
+          category: normalizedCategory as "Economic" | "Standard" | "Premium",
           isActive,
-          // Only update image/publicId if a new file was uploaded
           ...(imageUrl ? { imageUrl, publicId } : {}), 
         },
       });
     } else {
-      // 🟢 CREATE new package: Already checked and deleted old one above.
+      // 🚩 ENFORCE: If creating a NEW package, delete the existing package in that category first.
+      const existingPackage = await prisma.umrahPackage.findFirst({
+        where: { category: normalizedCategory },
+      });
+
+      if (existingPackage) {
+        await prisma.umrahPackage.delete({
+          where: { id: existingPackage.id },
+        });
+        console.log("🗑️ Old package deleted from database before new one was created:", existingPackage.id);
+      }
+      
+      // 🟢 CREATE new package
       saved = await prisma.umrahPackage.create({
         data: {
           title,
           price,
-          category: normalizedCategory,
+          category: normalizedCategory as "Economic" | "Standard" | "Premium",
           isActive,
           imageUrl: imageUrl || "",
           publicId: publicId || "",
@@ -169,7 +150,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH (Toggle Active/Inactive) ----------------
+// ---------------- PATCH, DELETE, OPTIONS (No change needed) ----------------
+
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -197,7 +179,6 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ---------------- DELETE ----------------
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -230,7 +211,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // Delete the package from the database.
     await prisma.umrahPackage.delete({
       where: { id: parseInt(id) },
     });
@@ -248,7 +228,6 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// ---------------- OPTIONS (CORS Preflight) ----------------
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
