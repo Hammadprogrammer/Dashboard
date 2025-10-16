@@ -33,7 +33,7 @@ async function uploadImage(file: File) {
     const uploadResult = await cloudinary.uploader.upload(base64File, {
         folder: "hajj-packages", 
         resource_type: "image",
-        transformation: [{ width: 400, height: 600, crop: "fill" }],
+        transformation: [{ width: 400, height: 600 }],
     });
 
     return uploadResult;

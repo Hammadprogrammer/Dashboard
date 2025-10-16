@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
                 folder: "umrah-packages",
                 width: 400,
                 height: 600,
-                crop: "fill" // Optional: for consistent image sizes
             });
 
             imageUrl = uploadRes.secure_url;
