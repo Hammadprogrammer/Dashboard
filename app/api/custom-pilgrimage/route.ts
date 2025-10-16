@@ -20,7 +20,6 @@ export async function GET() {
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
     console.error("CustomPilgrimage GET error:", error.message);
-
     return NextResponse.json(
       { error: "Failed to fetch data", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -52,21 +51,27 @@ export async function POST(req: NextRequest) {
     let heroImageUrl: string | undefined;
     let heroImageId: string | undefined;
 
-    // --- Image Upload Logic (Reliable Stream/Buffer Upload) ---
+    // --- Cloudinary Upload ---
     if (heroFile && heroFile.size > 0) {
       const buffer = Buffer.from(await heroFile.arrayBuffer());
       const uploadRes: any = await new Promise((resolve, reject) => {
         cloudinary.uploader
           .upload_stream(
             { folder: "custom-pilgrimage", resource_type: "image" },
-            (err, result) => (err ? reject(err) : resolve(result))
+            (err, result) => {
+              if (err) {
+                console.error("Cloudinary Upload Error:", err);
+                return reject(new Error(`Cloudinary upload failed: ${err.message}`));
+              }
+              resolve(result);
+            }
           )
           .end(buffer);
       });
       heroImageUrl = uploadRes.secure_url;
       heroImageId = uploadRes.public_id;
     }
-    // --------------------------------------------------------
+    // -------------------------
 
     // --- Update or Create ---
     let saved;
@@ -83,7 +88,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Delete old image if a new image is provided
+      // Delete old image if a new image was successfully uploaded
       if (heroImageId && existing.heroImageId) {
         await cloudinary.uploader.destroy(existing.heroImageId);
       }
@@ -119,14 +124,15 @@ export async function POST(req: NextRequest) {
           subtitle3,
           subtitle4,
           isActive,
-          heroImage: heroImageUrl,
-          heroImageId: heroImageId,
+          heroImage: heroImageUrl!,
+          heroImageId: heroImageId!,
         },
       });
     }
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
+    // This will catch Cloudinary errors, Prisma errors, and other POST function errors
     console.error("CustomPilgrimage POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save data", details: error.message },

@@ -1,4 +1,4 @@
-// CustomPilgrimageDashboard.tsx - Updated with yellow color scheme from Domestic Dashboard
+// CustomPilgrimageDashboard.tsx - Final Code with Yellow Theme and Robust Logic
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
@@ -28,7 +28,7 @@ interface CustomPilgrimage {
 const STATUS_MESSAGES = {
   success: { title: "Success 🎉", iconColor: "text-green-500" },
   error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, // Changed to yellow-400
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, 
 } as const;
 
 
@@ -154,7 +154,7 @@ export default function CustomPilgrimageDashboard() {
         body: formData,
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed to save");
+      if (!res.ok) throw new Error(result.details || result.error || "Failed to save");
 
       showModal(editingId ? "✅ Entry updated!" : "✅ Entry added!", "success");
       resetForm();
@@ -316,6 +316,18 @@ export default function CustomPilgrimageDashboard() {
             />
         </div>
         
+        {/* Active Toggle */}
+        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
+            <input
+                type="checkbox"
+                id="isActive"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="h-5 w-5 text-yellow-400 bg-gray-700 border-gray-600 rounded focus:ring-yellow-400 cursor-pointer"
+                disabled={isProcessing}
+            />
+            <label htmlFor="isActive" className="text-gray-300 font-medium">Entry is Active / Visible on Website</label>
+        </div>
 
         {/* Image Input and Preview */}
         <div className="p-4 border-2 border-dashed border-yellow-400/50 rounded-xl space-y-4 bg-gray-800">
@@ -341,7 +353,6 @@ export default function CustomPilgrimageDashboard() {
                   alt="Hero Preview"
                   className="w-full h-48 object-cover rounded-lg border border-gray-600"
                   onError={(e) => {
-                    // Fallback in case of broken image URL
                     e.currentTarget.src = "/placeholder.png";
                     e.currentTarget.onerror = null;
                   }}
