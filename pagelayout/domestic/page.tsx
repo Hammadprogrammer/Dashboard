@@ -129,10 +129,13 @@ export default function DomesticDashboardPage() {
       if (file) formData.append("file", file);
       formData.append("isActive", "true");
 
-      // FIX: Ensure this is the correct API route for domestic packages: /api/domestic
       const res = await fetch("/api/domestic", { method: "POST", body: formData });
+      
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
+      if (!res.ok) {
+        // Use the error message from the backend if available
+        throw new Error(data.error || "Failed to save package due to an unknown error.");
+      }
 
       showModal(id ? "✅ Package updated successfully!" : "✅ Package saved/replaced successfully!", "success");
       resetForm();
@@ -140,6 +143,7 @@ export default function DomesticDashboardPage() {
     } catch (err) {
       const error = err as Error;
       console.error("❌ Save Error:", error.message);
+      // FIX: Use the detailed error from the API route
       showModal(`⚠️ Error saving package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
