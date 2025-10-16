@@ -1,9 +1,9 @@
-// CustomPilgrimageDashboard.tsx - Final Code with Yellow Theme and Robust Logic
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
+// Ensure you have these icons installed: npm install @heroicons/react
 import {
   PencilIcon,
   TrashIcon,
@@ -24,7 +24,7 @@ interface CustomPilgrimage {
   heroImage?: string;
 }
 
-// Status Messages Map (consistent with other dashboards)
+// Status Messages Map (for modals)
 const STATUS_MESSAGES = {
   success: { title: "Success 🎉", iconColor: "text-green-500" },
   error: { title: "Error ❌", iconColor: "text-red-500" },
@@ -43,11 +43,12 @@ export default function CustomPilgrimageDashboard() {
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   
+  // State for displaying existing image during edit
   const [currentHeroImage, setCurrentHeroImage] = useState<string | undefined>(undefined);
 
   // --- Loading States ---
-  const [isProcessing, setIsProcessing] = useState(false); // For form submission
-  const [isLoading, setIsLoading] = useState(true); // For fetching data
+  const [isProcessing, setIsProcessing] = useState(false); // For form submission/actions (loading on buttons)
+  const [isLoading, setIsLoading] = useState(true); // For initial data fetch/refresh
 
   // Use keys to force re-render and clear file inputs
   const [heroKey, setHeroKey] = useState(0);
@@ -55,14 +56,12 @@ export default function CustomPilgrimageDashboard() {
   // --- Modal state ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const [modalType, setModalType] = useState<"success" | "error" | "warning">(
-    "success"
-  );
+  const [modalType, setModalType] = useState<"success" | "error" | "warning">("success");
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- useRef for form scrolling ---
+  // --- useRef for form scrolling (optional) ---
   const formRef = useRef<HTMLFormElement>(null);
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
@@ -76,11 +75,12 @@ export default function CustomPilgrimageDashboard() {
     try {
       setIsLoading(true);
       const res = await fetch("/api/custom-pilgrimage", { cache: "no-store" });
+      const result = await res.json();
+
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to fetch data");
+        throw new Error(result.details || result.error || "Failed to fetch data");
       }
-      const result: CustomPilgrimage[] = await res.json();
+      
       setData(result);
     } catch (err) {
       const error = err as Error;
@@ -106,7 +106,7 @@ export default function CustomPilgrimageDashboard() {
     setIsActive(true);
     setEditingId(null);
     setCurrentHeroImage(undefined);
-    setHeroKey(prev => prev + 1);
+    setHeroKey(prev => prev + 1); // Clears file input
   };
 
   // ✅ Save or Update
@@ -149,12 +149,17 @@ export default function CustomPilgrimageDashboard() {
     }
     
     try {
+      // API call to the unified POST endpoint
       const res = await fetch("/api/custom-pilgrimage", {
         method: "POST",
         body: formData,
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.details || result.error || "Failed to save");
+
+      if (!res.ok) {
+        // Log the detailed error from the server if available
+        throw new Error(result.details || result.error || "Failed to save data");
+      }
 
       showModal(editingId ? "✅ Entry updated!" : "✅ Entry added!", "success");
       resetForm();
@@ -183,6 +188,7 @@ export default function CustomPilgrimageDashboard() {
     setHeroFile(null); 
     setHeroKey(prev => prev + 1);
 
+    // Scroll to form after clicking edit
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -199,7 +205,12 @@ export default function CustomPilgrimageDashboard() {
       const res = await fetch(`/api/custom-pilgrimage?id=${deleteId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete");
+
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.details || result.error || "Failed to delete");
+      }
+      
       showModal("🗑️ Entry deleted", "success");
       setDeleteId(null);
       fetchData();
@@ -223,7 +234,12 @@ export default function CustomPilgrimageDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, isActive: !current }),
       });
-      if (!res.ok) throw new Error("Failed to toggle");
+
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.details || result.error || "Failed to toggle");
+      }
+
       showModal("✅ Status updated!", "success");
       fetchData();
     } catch (err) {
@@ -244,7 +260,7 @@ export default function CustomPilgrimageDashboard() {
         <CubeTransparentIcon className="h-8 w-8 mr-2" /> Customize Pilgrimage Dashboard
       </h1>
 
-      {/* --- GLOBAL LOADER --- */}
+      {/* --- GLOBAL LOADER (Overlay) --- */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -254,7 +270,10 @@ export default function CustomPilgrimageDashboard() {
         </div>
       )}
       
-      {/* --- FORM --- */}
+      {/* // ----------------------------------------------------------------------------------
+      // --- FORM SECTION ---
+      // ----------------------------------------------------------------------------------
+      */}
       <form
         onSubmit={handleSubmit}
         className="space-y-6 bg-gray-900 text-white shadow-2xl rounded-xl p-6 md:p-8 mb-12 border border-gray-700"
@@ -349,10 +368,12 @@ export default function CustomPilgrimageDashboard() {
                   {heroFile ? 'New Image Preview' : 'Current Image'}
                 </p>
                 <img
+                  // Use URL.createObjectURL for new file preview, otherwise use current URL
                   src={heroFile ? URL.createObjectURL(heroFile) : currentHeroImage}
                   alt="Hero Preview"
                   className="w-full h-48 object-cover rounded-lg border border-gray-600"
                   onError={(e) => {
+                    // Fallback in case of broken image URL
                     e.currentTarget.src = "/placeholder.png";
                     e.currentTarget.onerror = null;
                   }}
@@ -391,7 +412,10 @@ export default function CustomPilgrimageDashboard() {
         </div>
       </form>
 
-      {/* --- LIST --- */}
+      {/* // ----------------------------------------------------------------------------------
+      // --- LIST SECTION ---
+      // ----------------------------------------------------------------------------------
+      */}
       <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b-2 border-yellow-400/50 pb-3">Current Data Entries ({data.length})</h2>
 
 
@@ -409,7 +433,7 @@ export default function CustomPilgrimageDashboard() {
                 }`}
               >
                 
-                {/* Image */}
+                {/* Image Display */}
                 <div className="h-40 w-full overflow-hidden rounded-lg mb-3">
                   {entry.heroImage ? (
                       <img
@@ -426,6 +450,7 @@ export default function CustomPilgrimageDashboard() {
                   )}
                 </div>
                 
+                {/* Content */}
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-xl text-yellow-400 line-clamp-2">{entry.title}</h3>
                     <span className={`px-3 py-1 text-xs font-bold rounded-full ${
@@ -480,7 +505,11 @@ export default function CustomPilgrimageDashboard() {
         </div>
       )}
 
-      {/* --- MODALS --- */}
+      {/* // ----------------------------------------------------------------------------------
+      // --- MODALS SECTION ---
+      // ----------------------------------------------------------------------------------
+      */}
+      {/* General Message Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -510,6 +539,7 @@ export default function CustomPilgrimageDashboard() {
         </Dialog>
       </Transition>
 
+      {/* Delete Confirmation Modal */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

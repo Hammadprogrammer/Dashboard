@@ -1,9 +1,10 @@
-// app/api/custom-pilgrimage/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary"; // Assumed a working Cloudinary instance
-import prisma from "@/lib/prisma"; // Assumed a working Prisma instance
+// app/api/custom-pilgrimage/route.ts (UPDATED with Base64 upload logic)
 
-// Standard CORS headers
+import { NextRequest, NextResponse } from "next/server";
+// Make sure this file correctly loads and configures Cloudinary using ENV variables
+import cloudinary from "@/lib/cloudinary"; 
+import prisma from "@/lib/prisma";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -20,6 +21,7 @@ export async function GET() {
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
     console.error("CustomPilgrimage GET error:", error.message);
+
     return NextResponse.json(
       { error: "Failed to fetch data", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
     const isActiveStr = formData.get("isActive") as string | null;
     const heroFile = formData.get("heroImage") as File | null;
 
+    // --- Basic Validation ---
     if (!title || !subtitle1 || !subtitle2 || !subtitle3 || !subtitle4) {
       return NextResponse.json(
         { error: "All title and subtitle fields are required" },
@@ -51,27 +54,21 @@ export async function POST(req: NextRequest) {
     let heroImageUrl: string | undefined;
     let heroImageId: string | undefined;
 
-    // --- Cloudinary Upload ---
+    // --- Base64 Cloudinary Upload FIX ---
     if (heroFile && heroFile.size > 0) {
+      // Convert File to a Base64 string
       const buffer = Buffer.from(await heroFile.arrayBuffer());
-      const uploadRes: any = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            { folder: "custom-pilgrimage", resource_type: "image" },
-            (err, result) => {
-              if (err) {
-                console.error("Cloudinary Upload Error:", err);
-                return reject(new Error(`Cloudinary upload failed: ${err.message}`));
-              }
-              resolve(result);
-            }
-          )
-          .end(buffer);
+      const base64Image = `data:${heroFile.type};base64,${buffer.toString("base64")}`;
+
+      const uploadRes: any = await cloudinary.uploader.upload(base64Image, {
+        folder: "custom-pilgrimage",
+        resource_type: "image",
       });
+
       heroImageUrl = uploadRes.secure_url;
       heroImageId = uploadRes.public_id;
     }
-    // -------------------------
+    // ------------------------------------
 
     // --- Update or Create ---
     let saved;
@@ -88,7 +85,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Delete old image if a new image was successfully uploaded
+      // Delete old image if a new image was uploaded
       if (heroImageId && existing.heroImageId) {
         await cloudinary.uploader.destroy(existing.heroImageId);
       }
