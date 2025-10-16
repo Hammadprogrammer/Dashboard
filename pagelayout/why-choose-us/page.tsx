@@ -502,6 +502,7 @@ export default function WhyChooseUsDashboard() {
           </div>
         </Dialog>
       </Transition>
+      
     </div>
   );
 }
