@@ -1,11 +1,24 @@
+// api/domestic/route.ts - Updated for Production Reliability
+
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary"; // Assuming this is configured cloudinary v2
+import cloudinary from "@/lib/cloudinary"; 
 import prisma from "@/lib/prisma";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+// ⚠️ FIX 1: Export config to prevent Next.js from parsing the body automatically.
+// This is required when handling large files via FormData/req.formData() in Next.js.
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+  // Optionally increase the max duration for serverless functions (e.g., to 30 seconds)
+  // This helps with slow file uploads over the network.
+  maxDuration: 30, 
 };
 
 // ---------------- GET ----------------
@@ -28,6 +41,7 @@ export async function GET() {
 // ---------------- POST (CREATE + UPDATE with Image) ----------------
 export async function POST(req: NextRequest) {
   try {
+    // req.formData() handles the file stream correctly.
     const formData = await req.formData();
 
     const id = formData.get("id") as string | null;
@@ -53,7 +67,8 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
-    const normalizedCategory = category.toLowerCase();
+    // Ensure category is stored consistently (e.g., lowercased)
+    const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
     const isUpdating = !!id;
 
     let imageUrl: string | undefined;
@@ -78,7 +93,8 @@ export async function POST(req: NextRequest) {
         // Delete old image from Cloudinary
         if (existingPackage.publicId) {
           try {
-            await cloudinary.uploader.destroy(existingPackage.publicId);
+            // Wait for destruction to complete before uploading new file
+            await cloudinary.uploader.destroy(existingPackage.publicId); 
             console.log("🗑️ Old image deleted from Cloudinary:", existingPackage.publicId);
           } catch (err: any) {
             console.error("⚠️ Failed to delete old image from Cloudinary:", err.message);
@@ -102,6 +118,7 @@ export async function POST(req: NextRequest) {
 
         if (existing?.publicId) {
           try {
+            // Wait for destruction to complete before uploading new file
             await cloudinary.uploader.destroy(existing.publicId);
             console.log("🗑️ Old image deleted during update:", existing.publicId);
           } catch (err: any) {
@@ -120,7 +137,9 @@ export async function POST(req: NextRequest) {
             {
               folder: "domestic-packages",
               resource_type: "image",
-              transformation: [{ width: 400, height: 600, }],
+              // Changed transformation for better quality and aspect ratio preservation 
+              // Set a max width and height and use 'fit' cropping
+              transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
             },
             (error, result) => {
               if (error) reject(error);
@@ -141,8 +160,21 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+    
+    // 3. --- Data Validation before Database Write ---
+    // If updating and no new file was provided, ensure image details are not lost
+    if (isUpdating && !imageUrl) {
+        const existing = await prisma.domesticPackage.findUnique({ where: { id: parseInt(id!) } });
+        if (!existing?.imageUrl) {
+             return NextResponse.json(
+                { error: "Cannot remove existing image during update. Upload a replacement or keep the current one." },
+                { status: 400, headers: corsHeaders }
+            );
+        }
+    }
 
-    // 3. --- Save to Database ---
+
+    // 4. --- Save to Database ---
     let saved;
     if (isUpdating) {
       saved = await prisma.domesticPackage.update({
@@ -150,7 +182,7 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
-          category: normalizedCategory,
+          category: normalizedCategory as Package["category"],
           isActive,
           ...(imageUrl ? { imageUrl, publicId } : {}), // Update image only if uploaded
         },
@@ -165,7 +197,7 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
-          category: normalizedCategory,
+          category: normalizedCategory as Package["category"],
           isActive,
           imageUrl: imageUrl,
           publicId: publicId,
