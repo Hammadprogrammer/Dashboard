@@ -1,10 +1,8 @@
-// InternationalTourDashboard.tsx - FINAL & OPTIMIZED FRONTEND
-
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-// import Link from "next/link"; // REMOVED: Link is not strictly necessary for in-page scrolling
+import Link from "next/link";
 
 interface SliderImage {
   id: number;
@@ -87,8 +85,8 @@ export default function InternationalTourDashboard() {
     setSliderFiles([]);
     setIsActive(true);
     setEditingId(null);
-    setBackgroundKey(prev => prev + 1); // Force clear file input
-    setSliderKey(prev => prev + 1); // Force clear file input
+    setBackgroundKey(prev => prev + 1);
+    setSliderKey(prev => prev + 1);
   };
 
   // ✅ Save or Update
@@ -101,10 +99,7 @@ export default function InternationalTourDashboard() {
       return showModal("⚠️ Title and Description are required", "warning");
     }
     
-    // 🛑 REMOVED: Old Logic: Delete old background tour on CREATE was removed from API,
-    // so this unnecessary DELETE call from frontend is also removed.
-    
-    // ✅ FIX 1: New Tour Validation logic simplified and improved for correctness.
+    // Validation for new tour
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
             setLoading(false);
@@ -126,12 +121,11 @@ export default function InternationalTourDashboard() {
       formData.append("id", String(editingId));
     }
     
-    // Append files based on what's available (regardless of imageType for update)
-    // For CREATE, imageType dictates which file to check (as per validation above).
-    if (backgroundFile) {
+    // Append files based on imageType
+    if (imageType === "background" && backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
-    if (sliderFiles.length > 0) {
+    if (imageType === "slider" && sliderFiles.length > 0) {
       sliderFiles.forEach((file) => formData.append("sliderImages", file));
     }
     
@@ -143,7 +137,15 @@ export default function InternationalTourDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      showModal(editingId ? "✅ Tour updated!" : "✅ Tour added!", "success");
+      // ✅ FIX: Corrected ternary operator syntax
+      let successMessage = editingId 
+        ? "✅ Tour updated!" 
+        : backgroundFile
+          ? "✅ New Background Tour added! (Old one was deleted)" // Specific message for background replacement
+          : "✅ Tour added!"; // Message for slider tour creation
+
+      showModal(successMessage, "success");
+      
       resetForm();
       fetchTours();
     } catch (err) {
@@ -160,19 +162,17 @@ export default function InternationalTourDashboard() {
     setTitle(tour.title);
     setDescription(tour.description);
     setIsActive(tour.isActive);
-    
-    // Set UI's image type selector to match existing tour type
     if (tour.backgroundUrl) {
       setImageType("background");
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
     }
-    
-    // Clear file inputs for new selection and force re-render
+    // Clear file inputs for new selection
     setBackgroundFile(null); 
     setSliderFiles([]);
-    setBackgroundKey(prev => prev + 1); 
-    setSliderKey(prev => prev + 1);
+    setBackgroundKey(prev => prev + 1); // Force re-render
+    setSliderKey(prev => prev + 1); // Force re-render
+
 
     // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -297,11 +297,7 @@ export default function InternationalTourDashboard() {
         <div className="flex gap-4">
           <button
             type="submit"
-            // ✅ FIX 2: Added more robust disable logic for UPDATE
-            disabled={
-              loading || 
-              (!!editingId && !backgroundFile && sliderFiles.length === 0)
-            }
+            disabled={loading}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
           >
             {loading ? "Saving..." : editingId ? "Update Tour" : "Save Tour"}
@@ -326,7 +322,7 @@ export default function InternationalTourDashboard() {
         <>
           {backgroundTours.length > 0 && (
             <div className="mb-10">
-              <h1 className="text-2xl font-bold mb-4 text-center">Background Image Tours</h1>
+              <h1 className="text-2xl font-bold mb-4 text-center">Background Image Tours (Max 1)</h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {backgroundTours.map((tour) => (
                   <div
@@ -341,7 +337,7 @@ export default function InternationalTourDashboard() {
                       className="w-full h-56 object-cover rounded"
                     />
                     <div className="flex justify-between gap-2 mt-4">
-                      {/* 🛑 REMOVED <Link href="#international-tour"> around button. handleEdit handles scrolling. */}
+                      <Link href="#international-tour">
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -349,7 +345,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
-                      
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);
@@ -400,7 +396,7 @@ export default function InternationalTourDashboard() {
                       ))}
                     </div>
                     <div className="flex justify-between gap-2 mt-4">
-                      {/* 🛑 REMOVED <Link href="#international-tour"> around button. handleEdit handles scrolling. */}
+                       <Link href="#international-tour">
                       <button
                         onClick={() => handleEdit(tour)}
                         className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
@@ -408,7 +404,7 @@ export default function InternationalTourDashboard() {
                       >
                         Edit
                       </button>
-                      
+                      </Link>
                       <button
                         onClick={() => {
                           setDeleteId(tour.id);
@@ -513,6 +509,5 @@ export default function InternationalTourDashboard() {
         </Dialog>
       </Transition>
     </div>
-    
   );
 }
