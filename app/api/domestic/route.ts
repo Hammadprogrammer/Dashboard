@@ -1,10 +1,10 @@
-// api/domestic/route.ts - FIX: Added necessary interface and fixed Next.js config export structure.
+// api/domestic/route.ts - FINAL FIX: Includes Package interface and stable config for live deployment.
 
 import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary"; 
 import prisma from "@/lib/prisma";
 
-// --- Interface (Copied from frontend to resolve 'Type error: Cannot find name 'Package'') ---
+// --- Interface (FIX for Build Error) ---
 interface Package {
   id: number;
   title: string;
@@ -20,13 +20,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ⚠️ FIX 1: Next.js API Route Config Export for App Router
-// To disable default bodyParser when using req.formData, we export this object.
+// ⚠️ PRODUCTION FIX: Next.js API Route Config for App Router
+// Disables default body parser which interferes with req.formData() and large file uploads.
 export const config = {
   api: {
     bodyParser: false,
   },
-  // Increase maxDuration for file uploads
+  // Increase maxDuration for file uploads on serverless functions (30 seconds is a common safe limit)
   maxDuration: 30, 
 };
 
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     const title = formData.get("title") as string | null;
     const priceStr = formData.get("price") as string | null;
     const category = formData.get("category") as string | null;
+    // req.formData() handles file parsing reliably in Next.js App Router
     const file = formData.get("file") as File | null;
     const isActiveStr = formData.get("isActive") as string | null;
 
@@ -75,10 +76,9 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
-    // Normalize category: ensure it matches the Prisma schema's expected format (e.g., "Economic")
+    // Normalize category (e.g., 'economic' -> 'Economic')
     const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
     
-    // Type check for category (important for Prisma/TypeScript)
     if (!["Economic", "Standard", "Premium"].includes(normalizedCategory)) {
          return NextResponse.json(
             { error: "Invalid category value provided." },
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // 1. --- Handle Category Replacement (Only for CREATE/New Package) ---
+    // 1. --- Handle Category Replacement (For CREATE Only) ---
     if (!isUpdating) {
       if (!file) {
           return NextResponse.json(
@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
       if (existingPackage) {
         console.log(`Existing package found for category '${normalizedCategory}'. Replacing it.`);
         
-        // Delete old image from Cloudinary
         if (existingPackage.publicId) {
           try {
             await cloudinary.uploader.destroy(existingPackage.publicId); 
@@ -116,7 +115,6 @@ export async function POST(req: NextRequest) {
             console.error("⚠️ Failed to delete old image from Cloudinary:", err.message);
           }
         }
-        // Delete old package from database
         await prisma.domesticPackage.delete({
           where: { id: existingPackage.id },
         });
@@ -126,56 +124,63 @@ export async function POST(req: NextRequest) {
 
     // 2. --- Handle File Upload (for both CREATE and UPDATE) ---
     if (file) {
-      if (isUpdating) {
-        // If updating AND a new file is provided, delete the old file first
-        const existing = await prisma.domesticPackage.findUnique({
-          where: { id: parseInt(id!) },
-        });
+      // Check for file existence before proceeding with upload logic
+      if (file.size === 0) {
+          // This check prevents unnecessary processing if the file input was empty or upload failed early
+          console.warn("Received file is empty. Skipping Cloudinary upload.");
+      } else {
+        if (isUpdating) {
+          // Delete old image during update if a new one is provided
+          const existing = await prisma.domesticPackage.findUnique({
+            where: { id: parseInt(id!) },
+          });
 
-        if (existing?.publicId) {
-          try {
-            await cloudinary.uploader.destroy(existing.publicId);
-            console.log("🗑️ Old image deleted during update:", existing.publicId);
-          } catch (err: any) {
-            console.error("⚠️ Failed to delete old image during update:", err.message);
+          if (existing?.publicId) {
+            try {
+              await cloudinary.uploader.destroy(existing.publicId);
+              console.log("🗑️ Old image deleted during update:", existing.publicId);
+            } catch (err: any) {
+              console.error("⚠️ Failed to delete old image during update:", err.message);
+            }
           }
         }
-      }
 
-      // Perform Cloudinary Upload
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        // Perform Cloudinary Upload
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
 
-        const uploadRes: any = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "domestic-packages",
-              resource_type: "image",
-              transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
+          const uploadRes: any = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              {
+                folder: "domestic-packages",
+                resource_type: "image",
+                transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            stream.end(buffer); // End the stream with the file buffer
+          });
+
+          imageUrl = uploadRes.secure_url;
+          publicId = uploadRes.public_id;
+
+        } catch (err: any) {
+          console.error("❌ Cloudinary upload failed:", err.message);
+          return NextResponse.json(
+            { error: "Image upload failed", details: err.message },
+            { status: 500, headers: corsHeaders }
           );
-          stream.end(buffer);
-        });
-
-        imageUrl = uploadRes.secure_url;
-        publicId = uploadRes.public_id;
-
-      } catch (err: any) {
-        console.error("❌ Cloudinary upload failed:", err.message);
-        return NextResponse.json(
-          { error: "Image upload failed", details: err.message },
-          { status: 500, headers: corsHeaders }
-        );
+        }
       }
     }
     
-    // 3. --- Data Validation before Database Write ---
+    // 3. --- Final Data Validation/Preparation ---
     if (isUpdating && !imageUrl) {
+        // Only allow update if image is not changing OR if new image failed to upload (though the outer try-catch handles upload failure)
         const existing = await prisma.domesticPackage.findUnique({ where: { id: parseInt(id!) } });
         if (!existing?.imageUrl) {
              return NextResponse.json(
@@ -194,14 +199,14 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
-          // FIX: Used the imported/defined Package type here
           category: normalizedCategory as Package["category"], 
           isActive,
-          ...(imageUrl ? { imageUrl, publicId } : {}), 
+          ...(imageUrl ? { imageUrl, publicId } : {}), // Only update image/publicId if new image was uploaded
         },
       });
     } else {
        if (!imageUrl || !publicId) {
+          // This should be caught by step 1's file check, but good for safety
           throw new Error("Missing image data for new package creation.");
        }
 
@@ -209,7 +214,6 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
-          // FIX: Used the imported/defined Package type here
           category: normalizedCategory as Package["category"],
           isActive,
           imageUrl: imageUrl,

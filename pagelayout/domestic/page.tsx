@@ -1,8 +1,8 @@
-// DomesticDashboardPage.tsx - Already good, minimal cleanup.
+// DomesticDashboardPage.tsx
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import Link from "next/link"; // Ensure Link is imported
+import Link from "next/link"; 
 import {
   PencilIcon,
   TrashIcon,
@@ -129,6 +129,7 @@ export default function DomesticDashboardPage() {
       if (file) formData.append("file", file);
       formData.append("isActive", "true");
 
+      // FIX: Ensure this is the correct API route for domestic packages: /api/domestic
       const res = await fetch("/api/domestic", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
