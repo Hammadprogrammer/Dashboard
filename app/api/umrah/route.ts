@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     const isActive = isActiveStr === "true";
     const normalizedCategory = category.toLowerCase();
 
+    // 🚩 Logic to enforce one package per category: Delete existing before creation
     if (!id) {
       const existingPackage = await prisma.umrahPackage.findFirst({
         where: { category: normalizedCategory },
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
+    // Handle existing image deletion if updating AND uploading new file
     if (id && file) {
       const existing = await prisma.umrahPackage.findUnique({
         where: { id: parseInt(id) },
@@ -89,13 +91,14 @@ export async function POST(req: NextRequest) {
       if (existing?.publicId) {
         try {
           await cloudinary.uploader.destroy(existing.publicId);
-          console.log("🗑️ Old image deleted from Cloudinary:", existing.publicId);
+          console.log("🗑️ Old image deleted from Cloudinary during update:", existing.publicId);
         } catch (err: any) {
           console.error("Failed to delete old image from Cloudinary:", err.message);
         }
       }
     }
 
+    // Handle new file upload
     if (file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -129,6 +132,7 @@ export async function POST(req: NextRequest) {
 
     let saved;
     if (id) {
+      // Update existing package
       saved = await prisma.umrahPackage.update({
         where: { id: parseInt(id) },
         data: {
@@ -140,6 +144,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
+      // Create new package
       saved = await prisma.umrahPackage.create({
         data: {
           title,

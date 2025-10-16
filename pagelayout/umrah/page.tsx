@@ -46,7 +46,8 @@ export default function UmrahDashboardPage() {
   const fetchPackages = async () => {
     try {
       setIsProcessing(true); // <-- Start loader
-      const res = await fetch("/api/umrah?all=true");
+      // ⚠️ Removed ?all=true as the API GET handler doesn't use it
+      const res = await fetch("/api/umrah"); 
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
       setPackages(data);
@@ -75,7 +76,8 @@ export default function UmrahDashboardPage() {
     if (!/^\d+(\.\d{1,2})?$/.test(price))
       return showModal("⚠️ Price must be a valid number", "warning");
     if (!category) return showModal("⚠️ Select category", "warning");
-    if (!id && !file) return showModal("⚠️ Please upload an image", "warning");
+    // Only require file if creating new package
+    if (!id && !file) return showModal("⚠️ Please upload an image", "warning"); 
 
     setIsProcessing(true); // <-- Start loader
     try {
@@ -155,6 +157,7 @@ export default function UmrahDashboardPage() {
     setPrice("");
     setCategory("Economic");
     setFile(null);
+    if (preview) URL.revokeObjectURL(preview); // Clean up preview URL
     setPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -194,6 +197,7 @@ export default function UmrahDashboardPage() {
           value={price}
           onChange={(e) => {
             const val = e.target.value;
+            // Only allow valid number format
             if (/^\d*(\.\d{0,2})?$/.test(val)) setPrice(val);
           }}
           disabled={isProcessing}
@@ -203,7 +207,8 @@ export default function UmrahDashboardPage() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          disabled={!!id || isProcessing}
+          // ⚠️ Category can be changed when creating a NEW package, but not when updating an existing one (to avoid breaking the one-per-category rule on update)
+          disabled={!!id || isProcessing} 
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
           } disabled:opacity-50`}
@@ -222,6 +227,7 @@ export default function UmrahDashboardPage() {
           onChange={(e) => {
             const selected = e.target.files?.[0] || null;
             setFile(selected);
+            if (preview) URL.revokeObjectURL(preview);
             setPreview(selected ? URL.createObjectURL(selected) : null);
           }}
           disabled={isProcessing}
@@ -232,7 +238,8 @@ export default function UmrahDashboardPage() {
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
             <img
-              src={preview}
+              // If editing, use pkg.imageUrl; if new file, use local URL
+              src={preview} 
               alt="Preview"
               className="w-full h-[300px] object-cover rounded-lg border"
             />
