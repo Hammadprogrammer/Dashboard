@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const isActive = isActiveStr === "true";
     const normalizedCategory = category.toLowerCase();
 
-    // 🚩 Logic to enforce one package per category: Delete existing before creation
+    // 🚩 ENFORCE: If creating a NEW package, delete the existing package in that category first.
     if (!id) {
       const existingPackage = await prisma.umrahPackage.findFirst({
         where: { category: normalizedCategory },
@@ -132,19 +132,21 @@ export async function POST(req: NextRequest) {
 
     let saved;
     if (id) {
-      // Update existing package
+      // 🟢 UPDATE existing package: Category is locked in frontend, so no conflict check needed.
       saved = await prisma.umrahPackage.update({
         where: { id: parseInt(id) },
         data: {
           title,
           price,
-          category: normalizedCategory,
+          // Category is included but it's the package's original category (locked by frontend)
+          category: normalizedCategory, 
           isActive,
-          ...(imageUrl ? { imageUrl, publicId } : {}),
+          // Only update image/publicId if a new file was uploaded
+          ...(imageUrl ? { imageUrl, publicId } : {}), 
         },
       });
     } else {
-      // Create new package
+      // 🟢 CREATE new package: Already checked and deleted old one above.
       saved = await prisma.umrahPackage.create({
         data: {
           title,

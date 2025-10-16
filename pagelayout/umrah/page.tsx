@@ -46,7 +46,6 @@ export default function UmrahDashboardPage() {
   const fetchPackages = async () => {
     try {
       setIsProcessing(true); // <-- Start loader
-      // ⚠️ Removed ?all=true as the API GET handler doesn't use it
       const res = await fetch("/api/umrah"); 
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data: Package[] = await res.json();
@@ -207,7 +206,7 @@ export default function UmrahDashboardPage() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          // ⚠️ Category can be changed when creating a NEW package, but not when updating an existing one (to avoid breaking the one-per-category rule on update)
+          // 🚩 Category is DISABLED when editing (id is present) to enforce one-per-category rule
           disabled={!!id || isProcessing} 
           className={`border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white ${
             id ? "opacity-50 cursor-not-allowed" : ""
@@ -227,7 +226,7 @@ export default function UmrahDashboardPage() {
           onChange={(e) => {
             const selected = e.target.files?.[0] || null;
             setFile(selected);
-            if (preview) URL.revokeObjectURL(preview);
+            if (preview && id) URL.revokeObjectURL(preview); // Clean up old local preview URL if editing
             setPreview(selected ? URL.createObjectURL(selected) : null);
           }}
           disabled={isProcessing}
@@ -238,7 +237,6 @@ export default function UmrahDashboardPage() {
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
             <img
-              // If editing, use pkg.imageUrl; if new file, use local URL
               src={preview} 
               alt="Preview"
               className="w-full h-[300px] object-cover rounded-lg border"
