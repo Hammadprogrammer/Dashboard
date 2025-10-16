@@ -76,7 +76,6 @@ export async function POST(req: NextRequest) {
     const description = formData.get("description") as string | null;
     const isActiveStr = formData.get("isActive") as string | null;
     const backgroundFile = formData.get("backgroundImage") as File | null;
-    // NOTE: Filter out empty file entries from formData.getAll()
     const sliderFiles = formData.getAll("sliderImages").filter(f => f instanceof File && f.size > 0) as File[];
 
     if (!title || !description) {
@@ -141,12 +140,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // If a new background image is uploaded, delete the old one first (for the SAME tour)
+      // If a new background image is uploaded, delete the old one
       if (backgroundId && existing.backgroundId) {
         await cloudinary.uploader.destroy(existing.backgroundId);
       }
 
-      // If new sliders are uploaded, delete the old sliders and their records
+      // If new sliders are uploaded, delete the old ones
       if (sliderUploads.length > 0) {
         for (const img of existing.sliderImages) {
           if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
@@ -162,10 +161,8 @@ export async function POST(req: NextRequest) {
           title,
           description,
           isActive,
-          // Only update background if a new one was uploaded
           backgroundUrl: backgroundUrl ?? existing.backgroundUrl,
           backgroundId: backgroundId ?? existing.backgroundId,
-          // Replace sliders if new ones were uploaded
           ...(sliderUploads.length > 0
             ? { sliderImages: { create: sliderUploads } }
             : {}),
@@ -181,7 +178,7 @@ export async function POST(req: NextRequest) {
         );
       }
       
-      // ✅ NEW REPLACEMENT LOGIC: Find and delete the existing background tour if a new one is being created.
+      // ✅ ENFORCEMENT: Find and delete the existing background tour if a new one is being created.
       if (backgroundFile) {
         const existingBackgroundTour = await prisma.internationalTour.findFirst({
             where: { backgroundUrl: { not: null } },

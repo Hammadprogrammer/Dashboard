@@ -4,6 +4,7 @@ import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
 
+// Interfaces (These should be in a separate types file in a real app)
 interface SliderImage {
   id: number;
   url: string;
@@ -56,7 +57,6 @@ export default function InternationalTourDashboard() {
     setIsModalOpen(true);
   };
 
-  // ✅ Fetch tours
   const fetchTours = async () => {
     try {
       setFetching(true);
@@ -76,7 +76,6 @@ export default function InternationalTourDashboard() {
       fetchTours();
   }, []);
 
-  // ✅ Reset form
   const resetForm = () => {
     setTitle("");
     setDescription("");
@@ -89,7 +88,6 @@ export default function InternationalTourDashboard() {
     setSliderKey(prev => prev + 1);
   };
 
-  // ✅ Save or Update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -116,12 +114,10 @@ export default function InternationalTourDashboard() {
     formData.append("description", description);
     formData.append("isActive", String(isActive));
     
-    // Add ID if editing
     if (editingId) {
       formData.append("id", String(editingId));
     }
     
-    // Append files based on imageType
     if (imageType === "background" && backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
@@ -137,12 +133,12 @@ export default function InternationalTourDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      // ✅ FIX: Corrected ternary operator syntax
+      // FIX APPLIED: Corrected and enhanced success message logic
       let successMessage = editingId 
         ? "✅ Tour updated!" 
         : backgroundFile
-          ? "✅ New Background Tour added! (Old one was deleted)" // Specific message for background replacement
-          : "✅ Tour added!"; // Message for slider tour creation
+          ? "✅ New Background Tour added! (Old one was deleted)" // API handles deletion
+          : "✅ Tour added!";
 
       showModal(successMessage, "success");
       
@@ -156,7 +152,6 @@ export default function InternationalTourDashboard() {
     }
   };
 
-  // ✅ Edit
   const handleEdit = (tour: Tour) => {
     setEditingId(tour.id);
     setTitle(tour.title);
@@ -167,18 +162,15 @@ export default function InternationalTourDashboard() {
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
     }
-    // Clear file inputs for new selection
+    
     setBackgroundFile(null); 
     setSliderFiles([]);
-    setBackgroundKey(prev => prev + 1); // Force re-render
-    setSliderKey(prev => prev + 1); // Force re-render
+    setBackgroundKey(prev => prev + 1); 
+    setSliderKey(prev => prev + 1); 
 
-
-    // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ✅ Delete
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -199,7 +191,6 @@ export default function InternationalTourDashboard() {
     }
   };
 
-  // ✅ Toggle active/inactive
   const toggleActive = async (id: number, current: boolean) => {
     try {
       setLoading(true);
@@ -219,13 +210,12 @@ export default function InternationalTourDashboard() {
     }
   };
 
-  // Filter tours by image type
   const backgroundTours = tours.filter(tour => tour.backgroundUrl);
   const sliderTours = tours.filter(tour => tour.sliderImages.length > 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center" id="international-tour">🌍 International Tours</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center" id="international-tour">🌍 International Tours Dashboard</h1>
 
       {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
@@ -258,7 +248,7 @@ export default function InternationalTourDashboard() {
           disabled={loading}
         />
 
-        {/* This select is now disabled if editing */}
+        {/* Image Type Selector (Disabled during edit to prevent confusion) */}
         <select
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "slider")}
@@ -320,16 +310,17 @@ export default function InternationalTourDashboard() {
         <p className="text-center text-gray-500">No international packages available.</p>
       ) : (
         <>
+          {/* Background Tours Section */}
           {backgroundTours.length > 0 && (
             <div className="mb-10">
-              <h1 className="text-2xl font-bold mb-4 text-center">Background Image Tours (Max 1)</h1>
+              <h2 className="text-2xl font-bold mb-4 text-center">Background Image Tours (Max 1)</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {backgroundTours.map((tour) => (
                   <div
                     key={tour.id}
                     className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
                   >
-                    <h2 className="font-bold text-lg">{tour.title}</h2>
+                    <h3 className="font-bold text-lg">{tour.title}</h3>
                     <p className="text-gray-300 mb-2 line-clamp-3">{tour.description}</p>
                     <img
                       src={tour.backgroundUrl}
@@ -374,16 +365,17 @@ export default function InternationalTourDashboard() {
             </div>
           )}
 
+          {/* Slider Tours Section */}
           {sliderTours.length > 0 && (
             <div>
-              <h1 className="text-2xl font-bold mb-4 text-center">Slider Image Tours</h1>
+              <h2 className="text-2xl font-bold mb-4 text-center">Slider Image Tours</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {sliderTours.map((tour) => (
                   <div
                     key={tour.id}
                     className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
                   >
-                    <h2 className="font-bold text-lg">{tour.title}</h2>
+                    <h3 className="font-bold text-lg">{tour.title}</h3>
                     <p className="text-gray-300 mb-2 line-clamp-3">{tour.description}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {tour.sliderImages.slice(0, 4).map((img) => (
@@ -436,7 +428,8 @@ export default function InternationalTourDashboard() {
       )}
 
       {/* --- MODALS --- */}
-      <Transition appear show={isModalOpen} as={Fragment}>
+      {/* (Modal components for success/error/warning and delete confirmation) */}
+       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
           className="relative z-50"
