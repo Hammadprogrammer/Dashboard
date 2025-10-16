@@ -4,6 +4,7 @@ import { v2 as cloudinary } from "cloudinary";
 
 export const runtime = "nodejs";
 
+// Assume your Cloudinary configuration is correct in your actual file
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
     }
 
 
-    // 🔁 UPDATE existing
+    // 🔁 UPDATE existing package
     if (isUpdating) {
       const existing = await prisma.hajjPackage.findUnique({
         where: { id: parseInt(id!) },
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       if (imageUrl && existing.publicId) { 
           try {
               await cloudinary.uploader.destroy(existing.publicId); 
+              console.log("🗑️ Old image deleted from Cloudinary during update:", existing.publicId);
           } catch (err: any) {
               console.error("⚠️ Old image delete failed:", err.message);
           }
@@ -150,10 +152,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(updated, { status: 200, headers: corsHeaders });
     }
 
-    // ➕ CREATE new
+    // ➕ CREATE new package
+    
+    // 🚩 CATEGORY REPLACEMENT LOGIC: Check for and replace existing package in the same category
+    const existingPackageInCategory = await prisma.hajjPackage.findFirst({
+        where: { category: category },
+    });
+
+    if (existingPackageInCategory) {
+        console.log(`Existing package found for category '${category}'. Replacing it.`);
+        
+        // 1. Delete old image from Cloudinary
+        if (existingPackageInCategory.publicId) {
+            try {
+                await cloudinary.uploader.destroy(existingPackageInCategory.publicId);
+                console.log("🗑️ Old package image deleted from Cloudinary:", existingPackageInCategory.publicId);
+            } catch (err: any) {
+                console.error("⚠️ Failed to delete old image from Cloudinary:", err.message);
+            }
+        }
+        // 2. Delete old package from database
+        await prisma.hajjPackage.delete({
+            where: { id: existingPackageInCategory.id },
+        });
+        console.log("🗑️ Old package deleted from database:", existingPackageInCategory.id);
+    }
+    // 🚩 END REPLACEMENT LOGIC
+
     if (!imageUrl || !publicId) {
-       // Should not happen if file check is done correctly, but as a fallback:
-       throw new Error("File upload data is missing for new package creation.");
+       // Should be handled by the initial check, but good for safety
+       throw new Error("File upload data is missing for new package creation after category check.");
     }
     
     const created = await prisma.hajjPackage.create({

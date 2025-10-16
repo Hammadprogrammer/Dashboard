@@ -8,7 +8,7 @@ import {
   PlusCircleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  StarIcon, // Icon suitable for Hajj
+  StarIcon, 
   PhotoIcon,
 } from "@heroicons/react/24/outline";
 
@@ -154,7 +154,7 @@ export default function HajjDashboardPage() {
       formData.append("price", priceValue.toFixed(2));
       formData.append("category", category);
       if (file) formData.append("file", file);
-      formData.append("isActive", "true"); // New packages default to active
+      formData.append("isActive", "true"); 
 
       const res = await fetch("/api/hajj", { method: "POST", body: formData });
       const data = await res.json();
@@ -296,7 +296,8 @@ export default function HajjDashboardPage() {
           name="category"
           value={category}
           onChange={handleChange}
-          disabled={editingId !== null || isProcessing} // Disable category change when editing
+          // Disable category change when editing
+          disabled={editingId !== null || isProcessing} 
           className={`border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors cursor-pointer ${
             editingId !== null ? "opacity-60 cursor-not-allowed" : ""
           }`}
@@ -307,7 +308,11 @@ export default function HajjDashboardPage() {
             </option>
           ))}
         </select>
-        {editingId !== null && <p className="text-xs text-gray-400">Category is fixed when editing an existing package.</p>}
+        {editingId === null ? (
+            <p className="text-xs text-yellow-400">Selecting an existing category will replace the old package.</p>
+        ) : (
+            <p className="text-xs text-gray-400">Category is fixed when editing an existing package.</p>
+        )}
 
 
         {/* File Input */}
@@ -331,12 +336,10 @@ export default function HajjDashboardPage() {
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
             <img
-              // Use the preview state for both existing and new files
               src={preview}
               alt="Package Preview"
               className="w-full h-48 object-cover rounded-lg border border-gray-600"
               onError={(e) => {
-                // Fallback for missing images
                 e.currentTarget.src = "/placeholder.png";
                 e.currentTarget.onerror = null;
               }}
