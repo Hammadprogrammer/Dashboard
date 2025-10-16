@@ -1,8 +1,18 @@
-// api/domestic/route.ts - Updated for Production Reliability
+// api/domestic/route.ts - FIX: Added necessary interface and fixed Next.js config export structure.
 
 import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary"; 
 import prisma from "@/lib/prisma";
+
+// --- Interface (Copied from frontend to resolve 'Type error: Cannot find name 'Package'') ---
+interface Package {
+  id: number;
+  title: string;
+  price: number;
+  imageUrl: string;
+  isActive: boolean;
+  category: "Economic" | "Standard" | "Premium";
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,14 +20,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ⚠️ FIX 1: Export config to prevent Next.js from parsing the body automatically.
-// This is required when handling large files via FormData/req.formData() in Next.js.
+// ⚠️ FIX 1: Next.js API Route Config Export for App Router
+// To disable default bodyParser when using req.formData, we export this object.
 export const config = {
   api: {
     bodyParser: false,
   },
-  // Optionally increase the max duration for serverless functions (e.g., to 30 seconds)
-  // This helps with slow file uploads over the network.
+  // Increase maxDuration for file uploads
   maxDuration: 30, 
 };
 
@@ -41,7 +50,6 @@ export async function GET() {
 // ---------------- POST (CREATE + UPDATE with Image) ----------------
 export async function POST(req: NextRequest) {
   try {
-    // req.formData() handles the file stream correctly.
     const formData = await req.formData();
 
     const id = formData.get("id") as string | null;
@@ -67,8 +75,17 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
-    // Ensure category is stored consistently (e.g., lowercased)
+    // Normalize category: ensure it matches the Prisma schema's expected format (e.g., "Economic")
     const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+    
+    // Type check for category (important for Prisma/TypeScript)
+    if (!["Economic", "Standard", "Premium"].includes(normalizedCategory)) {
+         return NextResponse.json(
+            { error: "Invalid category value provided." },
+            { status: 400, headers: corsHeaders }
+        );
+    }
+
     const isUpdating = !!id;
 
     let imageUrl: string | undefined;
@@ -93,7 +110,6 @@ export async function POST(req: NextRequest) {
         // Delete old image from Cloudinary
         if (existingPackage.publicId) {
           try {
-            // Wait for destruction to complete before uploading new file
             await cloudinary.uploader.destroy(existingPackage.publicId); 
             console.log("🗑️ Old image deleted from Cloudinary:", existingPackage.publicId);
           } catch (err: any) {
@@ -118,7 +134,6 @@ export async function POST(req: NextRequest) {
 
         if (existing?.publicId) {
           try {
-            // Wait for destruction to complete before uploading new file
             await cloudinary.uploader.destroy(existing.publicId);
             console.log("🗑️ Old image deleted during update:", existing.publicId);
           } catch (err: any) {
@@ -137,8 +152,6 @@ export async function POST(req: NextRequest) {
             {
               folder: "domestic-packages",
               resource_type: "image",
-              // Changed transformation for better quality and aspect ratio preservation 
-              // Set a max width and height and use 'fit' cropping
               transformation: [{ width: 800, height: 600, crop: "fill", gravity: "center" }], 
             },
             (error, result) => {
@@ -162,7 +175,6 @@ export async function POST(req: NextRequest) {
     }
     
     // 3. --- Data Validation before Database Write ---
-    // If updating and no new file was provided, ensure image details are not lost
     if (isUpdating && !imageUrl) {
         const existing = await prisma.domesticPackage.findUnique({ where: { id: parseInt(id!) } });
         if (!existing?.imageUrl) {
@@ -182,13 +194,13 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
-          category: normalizedCategory as Package["category"],
+          // FIX: Used the imported/defined Package type here
+          category: normalizedCategory as Package["category"], 
           isActive,
-          ...(imageUrl ? { imageUrl, publicId } : {}), // Update image only if uploaded
+          ...(imageUrl ? { imageUrl, publicId } : {}), 
         },
       });
     } else {
-       // Ensure image data is present for new creation
        if (!imageUrl || !publicId) {
           throw new Error("Missing image data for new package creation.");
        }
@@ -197,6 +209,7 @@ export async function POST(req: NextRequest) {
         data: {
           title,
           price,
+          // FIX: Used the imported/defined Package type here
           category: normalizedCategory as Package["category"],
           isActive,
           imageUrl: imageUrl,

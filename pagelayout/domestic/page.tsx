@@ -1,15 +1,16 @@
-// DomesticDashboardPage.tsx - Updated to use Yellow/Gold colors and Umrah-like design
+// DomesticDashboardPage.tsx - Already good, minimal cleanup.
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
+import Link from "next/link"; // Ensure Link is imported
 import {
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
   XCircleIcon,
   MapPinIcon,
-  PhotoIcon, // Added PhotoIcon for consistency with Umrah
-  PlusCircleIcon, // Added PlusCircleIcon for consistency with Umrah
+  PhotoIcon, 
+  PlusCircleIcon, 
 } from "@heroicons/react/24/outline";
 
 // --- Interface ---
@@ -26,9 +27,9 @@ const categories: Package["category"][] = ["Economic", "Standard", "Premium"];
 
 // --- Status Messages Map ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" }, // Success color remains green for clarity
+  success: { title: "Success 🎉", iconColor: "text-green-500" }, 
   error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, // Matched Umrah's yellow
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, 
 } as const;
 
 
@@ -46,7 +47,7 @@ export default function DomesticDashboardPage() {
 
   // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const formRef = useRef<HTMLFormElement | null>(null); // Ref for scrolling
+  const formRef = useRef<HTMLFormElement | null>(null); 
 
   // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,14 +68,12 @@ export default function DomesticDashboardPage() {
   // --- Form Handlers ---
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // Only allow valid number format (up to two decimal places)
     if (/^\d*(\.\d{0,2})?$/.test(val) || val === "") setPrice(val);
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] || null;
     setFile(selected);
-    // Cleanup old preview URL
     if (preview) URL.revokeObjectURL(preview);
     setPreview(selected ? URL.createObjectURL(selected) : null);
   }
@@ -87,13 +86,12 @@ export default function DomesticDashboardPage() {
     setPreview(pkg.imageUrl);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    // Scroll to form on edit click
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   
   const resetForm = () => {
     if (preview && !packages.some(p => p.imageUrl === preview)) {
-        URL.revokeObjectURL(preview); // Clean up local URL if it's not an existing image URL
+        URL.revokeObjectURL(preview);
     }
     setId(null);
     setTitle("");
@@ -221,7 +219,6 @@ export default function DomesticDashboardPage() {
   };
   
   const getCategoryColor = (cat: Package["category"]) => {
-      // Retaining standard colors for categories
       if (cat === "Premium") return "bg-red-600";
       if (cat === "Standard") return "bg-blue-600";
       if (cat === "Economic") return "bg-green-600";
@@ -371,7 +368,7 @@ export default function DomesticDashboardPage() {
             <div
               key={pkg.id}
               className={`bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border ${
-                pkg.isActive ? "border-yellow-600" : "border-gray-700 opacity-80" // Highlight active with yellow/gold border
+                pkg.isActive ? "border-yellow-600" : "border-gray-700 opacity-80" 
               }`}
             >
               <div className="relative">
