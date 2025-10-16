@@ -1,14 +1,16 @@
+// app/api/custom-pilgrimage/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
-import prisma from "@/lib/prisma";
+import cloudinary from "@/lib/cloudinary"; // Assumed a working Cloudinary instance
+import prisma from "@/lib/prisma"; // Assumed a working Prisma instance
 
+// Standard CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-
+// ---------------- GET ----------------
 export async function GET() {
   try {
     const data = await prisma.customPilgrimage.findMany({
@@ -17,7 +19,7 @@ export async function GET() {
 
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
-    console.error(" GET error:", error.message);
+    console.error("CustomPilgrimage GET error:", error.message);
 
     return NextResponse.json(
       { error: "Failed to fetch data", details: error.message },
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     if (!title || !subtitle1 || !subtitle2 || !subtitle3 || !subtitle4) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "All title and subtitle fields are required" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -50,13 +52,13 @@ export async function POST(req: NextRequest) {
     let heroImageUrl: string | undefined;
     let heroImageId: string | undefined;
 
-    // --- Upload  Image ---
-    if (heroFile) {
+    // --- Image Upload Logic (Reliable Stream/Buffer Upload) ---
+    if (heroFile && heroFile.size > 0) {
       const buffer = Buffer.from(await heroFile.arrayBuffer());
       const uploadRes: any = await new Promise((resolve, reject) => {
         cloudinary.uploader
           .upload_stream(
-            { folder: "custom-pilgrimage"},
+            { folder: "custom-pilgrimage", resource_type: "image" },
             (err, result) => (err ? reject(err) : resolve(result))
           )
           .end(buffer);
@@ -64,10 +66,12 @@ export async function POST(req: NextRequest) {
       heroImageUrl = uploadRes.secure_url;
       heroImageId = uploadRes.public_id;
     }
+    // --------------------------------------------------------
 
     // --- Update or Create ---
     let saved;
     if (id) {
+      // --- UPDATE ---
       const existing = await prisma.customPilgrimage.findUnique({
         where: { id: parseInt(id) },
       });
@@ -79,6 +83,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Delete old image if a new image is provided
       if (heroImageId && existing.heroImageId) {
         await cloudinary.uploader.destroy(existing.heroImageId);
       }
@@ -92,13 +97,14 @@ export async function POST(req: NextRequest) {
           subtitle3,
           subtitle4,
           isActive,
+          // Use new image if uploaded, otherwise keep existing
           heroImage: heroImageUrl ?? existing.heroImage,
           heroImageId: heroImageId ?? existing.heroImageId,
         },
       });
     } else {
-      // Create new
-      if (!heroFile) {
+      // --- CREATE ---
+      if (!heroImageId) {
         return NextResponse.json(
           { error: "Image is required for new entry" },
           { status: 400, headers: corsHeaders }
@@ -121,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("POST error:", error.message);
+    console.error("CustomPilgrimage POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save data", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -134,9 +140,9 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, isActive } = body;
-    if (!id) {
+    if (!id || typeof isActive === 'undefined') {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID and isActive status are required" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -147,7 +153,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("PATCH error:", error.message);
+    console.error("CustomPilgrimage PATCH error:", error.message);
     return NextResponse.json(
       { error: "Failed to toggle active", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -178,6 +184,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (existing.heroImageId) {
+      // Delete image from Cloudinary
       await cloudinary.uploader.destroy(existing.heroImageId);
     }
 
@@ -190,7 +197,7 @@ export async function DELETE(req: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error(" DELETE error:", error.message);
+    console.error("CustomPilgrimage DELETE error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete entry", details: error.message },
       { status: 500, headers: corsHeaders }
