@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
 
-// Interfaces (These should be in a separate types file in a real app)
+// Interfaces (Define your data structure)
 interface SliderImage {
   id: number;
   url: string;
@@ -24,6 +24,7 @@ export default function InternationalTourDashboard() {
   const [tours, setTours] = useState<Tour[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  // Image type defaults to background
   const [imageType, setImageType] = useState<"background" | "slider">("background");
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [sliderFiles, setSliderFiles] = useState<File[]>([]);
@@ -34,11 +35,11 @@ export default function InternationalTourDashboard() {
   const [loading, setLoading] = useState(false); 
   const [fetching, setFetching] = useState(true); 
 
-  // Use keys to force re-render and clear file inputs
+  // Keys used to force re-render and clear file inputs
   const [backgroundKey, setBackgroundKey] = useState(0);
   const [sliderKey, setSliderKey] = useState(0);
 
-  // --- Modal state ---
+  // --- Modal State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
@@ -57,6 +58,7 @@ export default function InternationalTourDashboard() {
     setIsModalOpen(true);
   };
 
+  // ✅ Fetch tours
   const fetchTours = async () => {
     try {
       setFetching(true);
@@ -76,6 +78,7 @@ export default function InternationalTourDashboard() {
       fetchTours();
   }, []);
 
+  // ✅ Reset form
   const resetForm = () => {
     setTitle("");
     setDescription("");
@@ -84,10 +87,11 @@ export default function InternationalTourDashboard() {
     setSliderFiles([]);
     setIsActive(true);
     setEditingId(null);
-    setBackgroundKey(prev => prev + 1);
-    setSliderKey(prev => prev + 1);
+    setBackgroundKey(prev => prev + 1); // Clears background input
+    setSliderKey(prev => prev + 1); // Clears slider input
   };
 
+  // ✅ Handle Submit (Create or Update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -97,7 +101,7 @@ export default function InternationalTourDashboard() {
       return showModal("⚠️ Title and Description are required", "warning");
     }
     
-    // Validation for new tour
+    // Validation for new tour (no editingId)
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
             setLoading(false);
@@ -118,6 +122,7 @@ export default function InternationalTourDashboard() {
       formData.append("id", String(editingId));
     }
     
+    // Append files
     if (imageType === "background" && backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
@@ -133,11 +138,11 @@ export default function InternationalTourDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      // FIX APPLIED: Corrected and enhanced success message logic
+      // ✅ FIX CONFIRMED: Corrected and enhanced success message logic
       let successMessage = editingId 
         ? "✅ Tour updated!" 
         : backgroundFile
-          ? "✅ New Background Tour added! (Old one was deleted)" // API handles deletion
+          ? "✅ New Background Tour added! (Old one was deleted)" 
           : "✅ Tour added!";
 
       showModal(successMessage, "success");
@@ -146,31 +151,44 @@ export default function InternationalTourDashboard() {
       fetchTours();
     } catch (err) {
       console.error("❌ Save error:", err);
-      showModal("❌ Failed to save tour", "error");
+      // Display the error message returned from the server (if available)
+      const errMsg = (err instanceof Error && err.message) ? err.message : "Failed to save tour";
+      showModal("❌ " + errMsg, "error");
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ Edit handler
   const handleEdit = (tour: Tour) => {
     setEditingId(tour.id);
     setTitle(tour.title);
     setDescription(tour.description);
     setIsActive(tour.isActive);
+    // Determine image type based on existing data
     if (tour.backgroundUrl) {
       setImageType("background");
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
     }
     
+    // Clear file inputs when entering edit mode
     setBackgroundFile(null); 
     setSliderFiles([]);
     setBackgroundKey(prev => prev + 1); 
     setSliderKey(prev => prev + 1); 
 
+    // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // ✅ Delete confirmation trigger
+  const confirmDelete = (id: number) => {
+    setDeleteId(id);
+    setIsDeleteOpen(true);
+  };
+
+  // ✅ Delete execution
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -184,13 +202,15 @@ export default function InternationalTourDashboard() {
       fetchTours();
     } catch (err) {
       console.error("❌ Delete error:", err);
-      showModal("❌ Failed to delete tour", "error");
+      const errMsg = (err instanceof Error && err.message) ? err.message : "Failed to delete tour";
+      showModal("❌ " + errMsg, "error");
     } finally {
       setLoading(false);
       setIsDeleteOpen(false);
     }
   };
 
+  // ✅ Toggle active/inactive
   const toggleActive = async (id: number, current: boolean) => {
     try {
       setLoading(true);
@@ -204,12 +224,14 @@ export default function InternationalTourDashboard() {
       fetchTours();
     } catch (err) {
       console.error("❌ Toggle error:", err);
-      showModal("⚠️ Could not update status", "error");
+      const errMsg = (err instanceof Error && err.message) ? err.message : "Could not update status";
+      showModal("⚠️ " + errMsg, "error");
     } finally {
       setLoading(false);
     }
   };
 
+  // Filter tours for display sections
   const backgroundTours = tours.filter(tour => tour.backgroundUrl);
   const sliderTours = tours.filter(tour => tour.sliderImages.length > 0);
 
@@ -224,7 +246,7 @@ export default function InternationalTourDashboard() {
         </div>
       )}
 
-      {/* --- FORM --- */}
+      {/* -------------------- FORM SECTION -------------------- */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
@@ -248,7 +270,7 @@ export default function InternationalTourDashboard() {
           disabled={loading}
         />
 
-        {/* Image Type Selector (Disabled during edit to prevent confusion) */}
+        {/* Image Type Selector (Disabled during edit) */}
         <select
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "slider")}
@@ -305,12 +327,12 @@ export default function InternationalTourDashboard() {
         </div>
       </form>
 
-      {/* --- LIST --- */}
+      {/* -------------------- LIST SECTION -------------------- */}
       {!fetching && tours.length === 0 ? (
         <p className="text-center text-gray-500">No international packages available.</p>
       ) : (
         <>
-          {/* Background Tours Section */}
+          {/* Background Tours */}
           {backgroundTours.length > 0 && (
             <div className="mb-10">
               <h2 className="text-2xl font-bold mb-4 text-center">Background Image Tours (Max 1)</h2>
@@ -338,10 +360,7 @@ export default function InternationalTourDashboard() {
                       </button>
                       </Link>
                       <button
-                        onClick={() => {
-                          setDeleteId(tour.id);
-                          setIsDeleteOpen(true);
-                        }}
+                        onClick={() => confirmDelete(tour.id)}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                         disabled={loading || !!editingId}
                       >
@@ -365,7 +384,7 @@ export default function InternationalTourDashboard() {
             </div>
           )}
 
-          {/* Slider Tours Section */}
+          {/* Slider Tours */}
           {sliderTours.length > 0 && (
             <div>
               <h2 className="text-2xl font-bold mb-4 text-center">Slider Image Tours</h2>
@@ -398,10 +417,7 @@ export default function InternationalTourDashboard() {
                       </button>
                       </Link>
                       <button
-                        onClick={() => {
-                          setDeleteId(tour.id);
-                          setIsDeleteOpen(true);
-                        }}
+                        onClick={() => confirmDelete(tour.id)}
                         className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
                         disabled={loading || !!editingId}
                       >
@@ -427,8 +443,8 @@ export default function InternationalTourDashboard() {
         </>
       )}
 
-      {/* --- MODALS --- */}
-      {/* (Modal components for success/error/warning and delete confirmation) */}
+      {/* -------------------- MODALS -------------------- */}
+      {/* Success/Error Modal */}
        <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -468,6 +484,7 @@ export default function InternationalTourDashboard() {
         </Dialog>
       </Transition>
 
+      {/* Delete Confirmation Modal */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -480,7 +497,7 @@ export default function InternationalTourDashboard() {
               <Dialog.Title className="text-lg font-bold text-red-600">
                 Confirm Delete
               </Dialog.Title>
-              <p className="mt-2">Are you sure you want to delete this tour?</p>
+              <p className="mt-2">Are you sure you want to delete this tour? This action cannot be undone.</p>
               <div className="mt-4 flex justify-center gap-4">
                 <button
                   className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"

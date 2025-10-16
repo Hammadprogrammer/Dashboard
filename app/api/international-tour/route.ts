@@ -1,4 +1,4 @@
-// api/international-tour/route.ts - FINAL & STABLE API CODE
+// app/api/international-tour/route.ts - BASE64 FIX APPLIED
 
 import { NextRequest, NextResponse } from "next/server";
 // Assuming you have your Cloudinary configuration exported as default from this file
@@ -13,6 +13,7 @@ const corsHeaders = {
 
 // --- HELPER FUNCTION: Deletes Tour by ID and cleans up Cloudinary ---
 async function deleteTourAndCloudinary(tourId: number) {
+  // ... (This function remains the same) ...
   const existing = await prisma.internationalTour.findUnique({
     where: { id: tourId },
     include: { sliderImages: true },
@@ -47,6 +48,15 @@ async function deleteTourAndCloudinary(tourId: number) {
   await prisma.internationalTour.delete({
     where: { id: existing.id },
   });
+}
+
+// ✅ NEW HELPER: Converts File to Base64 Data URL
+async function fileToBase64(file: File): Promise<string> {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
+    // Cloudinary Base64 requires the data URL prefix
+    return `data:${file.type};base64,${base64}`;
 }
 
 
@@ -90,33 +100,28 @@ export async function POST(req: NextRequest) {
     let backgroundId: string | undefined;
     let sliderUploads: { url: string; publicId: string }[] = [];
 
-    // --- 1. Upload Background Image ---
+    // --- 1. Upload Background Image (Base64) ---
     if (backgroundFile && backgroundFile.size > 0) {
-      const buffer = Buffer.from(await backgroundFile.arrayBuffer());
-      const uploadRes: any = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            { folder: "international-tours/backgrounds" },
-            (err, result) => (err ? reject(err) : resolve(result))
-          )
-          .end(buffer);
+      // ⚠️ FIX APPLIED: Using Base64 upload for reliability
+      const base64Data = await fileToBase64(backgroundFile);
+      
+      const uploadRes: any = await cloudinary.uploader.upload(base64Data, { 
+          folder: "international-tours/backgrounds",
       });
       backgroundUrl = uploadRes.secure_url;
       backgroundId = uploadRes.public_id;
     }
 
-    // --- 2. Upload Slider Images ---
+    // --- 2. Upload Slider Images (Base64) ---
     if (sliderFiles.length > 0) {
       for (const file of sliderFiles) {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploadRes: any = await new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream(
-              { folder: "international-tours/sliders"},
-              (err, result) => (err ? reject(err) : resolve(result))
-            )
-            .end(buffer);
+        // ⚠️ FIX APPLIED: Using Base64 upload for reliability
+        const base64Data = await fileToBase64(file);
+        
+        const uploadRes: any = await cloudinary.uploader.upload(base64Data, {
+            folder: "international-tours/sliders",
         });
+        
         sliderUploads.push({
           url: uploadRes.secure_url,
           publicId: uploadRes.public_id,
@@ -127,7 +132,7 @@ export async function POST(req: NextRequest) {
     // --- 3. Update or Create ---
     let saved;
     if (id) {
-      // LOGIC FOR UPDATING
+      // LOGIC FOR UPDATING (Remains largely the same, cleanup uses destroy())
       const existing = await prisma.internationalTour.findUnique({
         where: { id: parseInt(id) },
         include: { sliderImages: true },
@@ -140,12 +145,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // If a new background image is uploaded, delete the old one
+      // Cleanup old background if new one is uploaded
       if (backgroundId && existing.backgroundId) {
         await cloudinary.uploader.destroy(existing.backgroundId);
       }
 
-      // If new sliders are uploaded, delete the old ones
+      // Cleanup old sliders if new ones are uploaded
       if (sliderUploads.length > 0) {
         for (const img of existing.sliderImages) {
           if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
@@ -178,7 +183,7 @@ export async function POST(req: NextRequest) {
         );
       }
       
-      // ✅ ENFORCEMENT: Find and delete the existing background tour if a new one is being created.
+      // ENFORCEMENT: Delete the existing background tour if a new one is being created.
       if (backgroundFile) {
         const existingBackgroundTour = await prisma.internationalTour.findFirst({
             where: { backgroundUrl: { not: null } },
@@ -186,7 +191,6 @@ export async function POST(req: NextRequest) {
         });
         
         if (existingBackgroundTour) {
-            console.log(`Deleting old background tour ID: ${existingBackgroundTour.id} to enforce single background.`);
             await deleteTourAndCloudinary(existingBackgroundTour.id);
         }
       }
@@ -207,15 +211,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
     console.error("POST error:", error.message);
+    // This detailed error logging helps solve the 500 error!
     return NextResponse.json(
-      { error: "Failed to save tour", details: error.message },
+      { error: "Failed to save tour", details: error.message, stack: error.stack },
       { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// ---------------- PATCH (toggle active/inactive) ----------------
+// ---------------- PATCH, DELETE, OPTIONS (Remain the same) ----------------
 export async function PATCH(req: NextRequest) {
+  // ... (PATCH logic remains the same) ...
   try {
     const body = await req.json();
     const { id, isActive } = body;
@@ -240,8 +246,8 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ---------------- DELETE ----------------
 export async function DELETE(req: NextRequest) {
+  // ... (DELETE logic remains the same) ...
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -267,7 +273,6 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// ---------------- OPTIONS ----------------
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders }) ;
-}
+} 
