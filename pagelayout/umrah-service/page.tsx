@@ -1,8 +1,15 @@
+// UmrahServiceDashboard.tsx
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import Link from "next/link";
+import {
+  PencilIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline"; // Added necessary icons
 
 interface ServiceImage {
   id: number;
@@ -16,8 +23,17 @@ interface UmrahService {
   description: string;
   isActive: boolean;
   heroImage?: string;
+  heroImageId?: string; // Added for completeness, although not used in FE logic
   serviceImages: ServiceImage[];
 }
+
+// Status Messages Map
+const STATUS_MESSAGES = {
+  success: { title: "Success 🎉", iconColor: "text-green-600" },
+  error: { title: "Error ❌", iconColor: "text-red-600" },
+  warning: { title: "Warning ⚠️", iconColor: "text-yellow-600" },
+} as const;
+
 
 export default function UmrahServiceDashboard() {
   const [services, setServices] = useState<UmrahService[]>([]);
@@ -28,10 +44,9 @@ export default function UmrahServiceDashboard() {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
-  // --- New state for displaying current images in edit mode ---
+  
   const [currentHeroImage, setCurrentHeroImage] = useState<string | undefined>(undefined);
   const [currentServiceImages, setCurrentServiceImages] = useState<ServiceImage[]>([]);
-  // -----------------------------------------------------------
 
   // --- Loading States ---
   const [loading, setLoading] = useState(false);
@@ -66,7 +81,7 @@ export default function UmrahServiceDashboard() {
       setFetching(true);
       const res = await fetch("/api/umrah-service", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch services");
-      const data = await res.json();
+      const data: UmrahService[] = await res.json();
       setServices(data);
     } catch (err) {
       console.error("❌ Fetch error:", err);
@@ -78,21 +93,22 @@ export default function UmrahServiceDashboard() {
 
   useEffect(() => {
     fetchServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ✅ Reset form
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setImageType("background");
+    // Preserve imageType unless reset button is clicked explicitly by user
+    // For now, reset to default:
+    setImageType("background"); 
     setHeroFile(null);
     setGalleryFiles([]);
     setIsActive(true);
     setEditingId(null);
-    // --- Clear current image states on reset ---
     setCurrentHeroImage(undefined);
     setCurrentServiceImages([]);
-    // ------------------------------------------
     setHeroKey(prev => prev + 1);
     setGalleryKey(prev => prev + 1);
   };
@@ -107,48 +123,48 @@ export default function UmrahServiceDashboard() {
       return showModal("⚠️ Title and Description are required", "warning");
     }
 
-    // Validation for new service
-    if (!editingId) {
-      if (imageType === "background" && !heroFile) {
+    const hasNewHeroFile = heroFile && heroFile.size > 0;
+    const hasNewGalleryFiles = galleryFiles.length > 0 && galleryFiles.some(f => f.size > 0);
+
+    // Validation
+    if (!editingId && !hasNewHeroFile && !hasNewGalleryFiles) {
         setLoading(false);
-        return showModal("⚠️ Please upload a background image for a new service", "warning");
-      }
-      if (imageType === "services" && galleryFiles.length === 0) {
+        return showModal("⚠️ An image is required for a new service.", "warning");
+    }
+    if (editingId && !hasNewHeroFile && !hasNewGalleryFiles && !currentHeroImage && currentServiceImages.length === 0) {
         setLoading(false);
-        return showModal("⚠️ Please upload at least one service image for a new service", "warning");
-      }
+        return showModal("⚠️ An image is required, please upload one or ensure one exists.", "warning");
+    }
+    
+    // Type checking for Image Switch (Crucial Validation)
+    if (imageType === "background" && !isEditing && !hasNewHeroFile) {
+        setLoading(false);
+        return showModal("⚠️ Please upload a background image for a new background service.", "warning");
+    }
+    if (imageType === "services" && !isEditing && !hasNewGalleryFiles) {
+        setLoading(false);
+        return showModal("⚠️ Please upload at least one service image for a new gallery service.", "warning");
     }
 
-    // Validation for editing: ensure there's a file OR an existing image
-    if (editingId) {
-      if (imageType === "background" && !heroFile && !currentHeroImage) {
-        setLoading(false);
-        return showModal("⚠️ Please upload a background image or ensure one exists", "warning");
-      }
-      if (imageType === "services" && galleryFiles.length === 0 && currentServiceImages.length === 0) {
-        setLoading(false);
-        return showModal("⚠️ Please upload at least one service image or ensure one exists", "warning");
-      }
-    }
 
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
     formData.append("isActive", String(isActive));
 
-    // Add ID if editing
     if (editingId) {
       formData.append("id", String(editingId));
     }
 
-    // Append files based on imageType
-    // NOTE: Sending the old image URLs is NOT needed, the backend should handle updates
-    // based on the presence of a new file. If no new file is sent, the old one remains.
-    if (imageType === "background" && heroFile) {
-      formData.append("heroImage", heroFile);
+    // Append files based on imageType and presence of new file
+    if (imageType === "background" && hasNewHeroFile) {
+      formData.append("heroImage", heroFile as File);
+      // NOTE: Do NOT send old serviceImages/heroImageId, backend logic handles deletion based on new file presence
     }
-    if (imageType === "services" && galleryFiles.length > 0) {
-      galleryFiles.forEach((file) => formData.append("serviceImages", file));
+    
+    if (imageType === "services" && hasNewGalleryFiles) {
+        galleryFiles.forEach((file) => formData.append("serviceImages", file));
+        // NOTE: Do NOT send old serviceImages/heroImageId
     }
 
     try {
@@ -163,8 +179,9 @@ export default function UmrahServiceDashboard() {
       resetForm();
       fetchServices();
     } catch (err) {
-      console.error("❌ Save error:", err);
-      showModal("❌ Failed to save service", "error");
+      const error = err as Error;
+      console.error("❌ Save error:", error.message);
+      showModal(`❌ Failed to save service: ${error.message}`, "error");
     } finally {
       setLoading(false);
     }
@@ -177,17 +194,15 @@ export default function UmrahServiceDashboard() {
     setDescription(service.description);
     setIsActive(service.isActive);
 
-    // Set the image type and current images for display
     if (service.heroImage) {
       setImageType("background");
       setCurrentHeroImage(service.heroImage);
-      setCurrentServiceImages([]); // Clear other image state
+      setCurrentServiceImages([]); 
     } else if (service.serviceImages.length > 0) {
       setImageType("services");
       setCurrentServiceImages(service.serviceImages);
-      setCurrentHeroImage(undefined); // Clear other image state
+      setCurrentHeroImage(undefined); 
     } else {
-      // Handle case with no images (unlikely based on validation, but good to be safe)
       setImageType("background");
       setCurrentHeroImage(undefined);
       setCurrentServiceImages([]);
@@ -196,14 +211,18 @@ export default function UmrahServiceDashboard() {
     // Clear file inputs for *new* selection
     setHeroFile(null);
     setGalleryFiles([]);
-    setHeroKey(prev => prev + 1); // Force re-render/clear input
-    setGalleryKey(prev => prev + 1); // Force re-render/clear input
+    setHeroKey(prev => prev + 1); 
+    setGalleryKey(prev => prev + 1); 
 
-    // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ✅ Delete
+  // ✅ Delete (uses utility modals)
+  const confirmDelete = (id: number) => {
+    setDeleteId(id);
+    setIsDeleteOpen(true);
+  };
+  
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -226,6 +245,7 @@ export default function UmrahServiceDashboard() {
 
   // ✅ Toggle active/inactive
   const toggleActive = async (id: number, current: boolean) => {
+    if(loading || fetching) return;
     try {
       setLoading(true);
       const res = await fetch("/api/umrah-service", {
@@ -247,31 +267,38 @@ export default function UmrahServiceDashboard() {
   const heroServices = services.filter(service => service.heroImage);
   const galleryServices = services.filter(service => service.serviceImages.length > 0);
   const isEditing = !!editingId;
+  const isAnyActionDisabled = loading || fetching;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center" id="umrah-service">🕋 Umrah Services</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center text-yellow-400" id="umrah-service">🕋 Umrah Services Dashboard</h1>
 
       {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400"></div>
+             <p className="mt-4 text-white font-semibold">{fetching ? "Loading Services..." : "Processing Request..."}</p>
+          </div>
         </div>
       )}
 
       {/* --- FORM --- */}
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
+        className="space-y-4 bg-gray-900 text-white shadow-2xl rounded-2xl p-6 mb-10 border border-gray-700"
         ref={formRef}
       >
+        <h2 className="text-xl font-bold text-yellow-400">{isEditing ? "Edit Umrah Service" : "Add New Umrah Service"}</h2>
+
         <input
           type="text"
           placeholder="Service Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400"
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
           disabled={loading}
+          required
         />
 
         <textarea
@@ -279,150 +306,174 @@ export default function UmrahServiceDashboard() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none"
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 resize-none transition-colors"
           disabled={loading}
+          required
         />
+        
+
+
 
         <select
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "services")}
-          className="border border-gray-700 p-2 w-full rounded focus:ring-2 focus:ring-yellow-400 bg-black text-white"
+          className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors"
           disabled={isEditing || loading}
         >
-          <option value="background">Background Image</option>
-          <option value="services">Service Images</option>
+          <option value="background">Background/Hero Image (Replaces previous hero service on new creation)</option>
+          <option value="services">Service Gallery Images</option>
         </select>
 
-        {imageType === "background" && (
-          <div className="space-y-2">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
-              className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-              key={heroKey}
-              disabled={loading}
-            />
-            {/* --- Display Current Hero Image in Edit Mode --- */}
-            {isEditing && currentHeroImage && (
-              <div className="p-2 border border-gray-700 rounded bg-gray-800">
-                <p className="text-sm mb-2 text-gray-400">Current Background Image (Upload a new file to replace):</p>
-                <img
-                  src={currentHeroImage}
-                  alt="Current Hero Image"
-                  className="w-full h-40 object-cover rounded"
-                />
-              </div>
-            )}
-            {/* ------------------------------------------------ */}
-          </div>
-        )}
-
-        {imageType === "services" && (
-          <div className="space-y-2">
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) =>
-                setGalleryFiles(e.target.files ? Array.from(e.target.files) : [])
+        {/* --- Image Inputs --- */}
+        <div className="p-3 border border-dashed border-gray-700 rounded-lg space-y-3">
+          <p className="text-sm text-gray-400 font-semibold">
+              {imageType === "background" 
+                ? "Upload Hero Image (JPG/PNG)"
+                : "Upload Gallery Images (Select multiple)"
               }
-              className="border border-gray-700 p-2 w-full rounded bg-black text-white"
-              key={galleryKey}
-              disabled={loading}
-            />
-            {/* --- Display Current Service Images in Edit Mode --- */}
-            {isEditing && currentServiceImages.length > 0 && (
-              <div className="p-2 border border-gray-700 rounded bg-gray-800">
-                <p className="text-sm mb-2 text-gray-400">Current Service Images (Upload new files to add/replace):</p>
+          </p>
+          
+          {imageType === "background" && (
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 transition-colors cursor-pointer text-sm text-gray-300"
+                key={heroKey}
+                disabled={loading}
+              />
+              {/* Preview */}
+              {(heroFile || currentHeroImage) && (
+                <div className="mt-4">
+                  <p className="text-sm text-gray-400 mb-1">Preview:</p>
+                  <img
+                    src={heroFile ? URL.createObjectURL(heroFile) : currentHeroImage}
+                    alt="Hero Preview"
+                    className="w-full h-40 object-cover rounded-lg border border-gray-600"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {imageType === "services" && (
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) =>
+                  setGalleryFiles(e.target.files ? Array.from(e.target.files) : [])
+                }
+                className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 transition-colors cursor-pointer text-sm text-gray-300"
+                key={galleryKey}
+                disabled={loading}
+              />
+              {/* Preview (Combines new and current images for preview) */}
+              <div className="mt-4">
+                <p className="text-sm text-gray-400 mb-1">Preview (New + Current):</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {currentServiceImages.map((img) => (
+                  {/* New files */}
+                  {galleryFiles.map((file, index) => (
+                    <img
+                      key={index}
+                      src={URL.createObjectURL(file)}
+                      alt={`New Service Image ${index + 1}`}
+                      className="w-full h-16 object-cover rounded-lg border border-yellow-500"
+                    />
+                  ))}
+                  {/* Current files (only if no new files are selected) */}
+                  {galleryFiles.length === 0 && currentServiceImages.map((img) => (
                     <img
                       key={img.id}
                       src={img.url}
-                      alt="Service Image"
-                      className="w-full h-16 object-cover rounded"
+                      alt="Current Service Image"
+                      className="w-full h-16 object-cover rounded-lg border border-gray-600"
                     />
                   ))}
                 </div>
               </div>
-            )}
-            {/* --------------------------------------------------- */}
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
-        <div className="flex gap-4">
+        {/* Form Actions */}
+        <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            disabled={loading}
-            className="bg-yellow-500 text-black px-6 py-2 rounded-lg w-full hover:bg-yellow-600 disabled:opacity-50"
+            disabled={isAnyActionDisabled || !title.trim() || !description.trim()}
+            className="bg-yellow-500 text-black px-6 py-3 rounded-xl font-bold w-full hover:bg-yellow-600 disabled:opacity-50 transition-colors shadow-lg"
           >
-            {loading ? "Saving..." : isEditing ? "Update Service" : "Save Service"}
+            {loading ? "Processing..." : isEditing ? "Update Service" : "Save New Service"}
           </button>
           {isEditing && (
             <button
               type="button"
               onClick={resetForm}
-              className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50"
+              className="bg-gray-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-600 disabled:opacity-50 transition-colors"
               disabled={loading}
             >
-              Cancel
+              Cancel Edit
             </button>
           )}
         </div>
       </form>
 
-      {/* --- LIST --- */}
+      {/* --- LISTS --- */}
       {!fetching && services.length === 0 ? (
-        <p className="text-center text-gray-500">No Umrah services available.</p>
+        <p className="text-center text-gray-500 p-10 bg-gray-900 rounded-xl border border-gray-700">
+            No Umrah services have been created yet.
+        </p>
       ) : (
         <>
+          {/* Background Services List */}
           {heroServices.length > 0 && (
             <div className="mb-10">
-              <h1 className="text-2xl font-bold mb-4 text-center">Background Image</h1>
+              <h1 className="text-2xl font-bold mb-4 text-gray-200 border-b border-gray-700 pb-2">Hero/Background Services</h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {heroServices.map((service) => (
                   <div
                     key={service.id}
-                    className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
+                    className="bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border border-gray-700"
                   >
-                    <h2 className="font-bold text-lg">{service.title}</h2>
-                    <p className="text-gray-300 mb-2 line-clamp-3">{service.description}</p>
-                    <img
-                      src={service.heroImage}
-                      alt={service.title}
-                      className="w-full h-56 object-cover rounded"
-                    />
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Link href="#umrah-service">
+                    <h2 className="font-bold text-xl text-yellow-400 line-clamp-2">{service.title}</h2>
+                    <p className="text-gray-300 text-sm mb-2 line-clamp-3">{service.description}</p>
+                    {service.heroImage && (
+                        <img
+                          src={service.heroImage}
+                          alt={service.title}
+                          className="w-full h-56 object-cover rounded-lg border border-gray-600 my-2"
+                        />
+                    )}
+                    <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
+                      <Link href="#umrah-service" passHref legacyBehavior>
                       <button
                         onClick={() => handleEdit(service)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || isEditing}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded-lg hover:bg-yellow-600 disabled:opacity-50 text-sm font-semibold flex items-center"
+                        disabled={isAnyActionDisabled}
                       >
-                        Edit
+                        <PencilIcon className="h-4 w-4 mr-1"/> Edit
                       </button>
                       </Link>
                       <button
-                        onClick={() => {
-                          setDeleteId(service.id);
-                          setIsDeleteOpen(true);
-                        }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || isEditing}
+                        onClick={() => confirmDelete(service.id)}
+                        className="bg-red-600 text-white px-4 py-1 rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-semibold flex items-center"
+                        disabled={isAnyActionDisabled}
                       >
-                        Delete
+                        <TrashIcon className="h-4 w-4 mr-1"/> Delete
                       </button>
                       <button
                         onClick={() => toggleActive(service.id, service.isActive)}
-                        className={`px-4 py-1 rounded disabled:opacity-50 ${
+                        className={`px-4 py-1 rounded-lg disabled:opacity-50 text-sm font-semibold flex items-center ${
                           service.isActive
-                            ? "bg-green-500 hover:bg-green-600"
-                            : "bg-gray-500 hover:bg-gray-600"
+                            ? "bg-green-600 text-white hover:bg-green-700"
+                            : "bg-gray-600 text-white hover:bg-gray-700"
                         }`}
-                        disabled={loading || isEditing}
+                        disabled={isAnyActionDisabled}
                       >
-                        {service.isActive ? "Active ✅" : "Inactive ❌"}
+                        {service.isActive ? <CheckCircleIcon className="h-4 w-4 mr-1"/> : <XCircleIcon className="h-4 w-4 mr-1"/>}
+                        {service.isActive ? "Active" : "Inactive"}
                       </button>
                     </div>
                   </div>
@@ -431,57 +482,56 @@ export default function UmrahServiceDashboard() {
             </div>
           )}
 
+          {/* Gallery Services List */}
           {galleryServices.length > 0 && (
             <div>
-              <h1 className="text-2xl font-bold mb-4 text-center">Service Images</h1>
+              <h1 className="text-2xl font-bold mb-4 text-gray-200 border-b border-gray-700 pb-2">Gallery/Image Set Services</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {galleryServices.map((service) => (
                   <div
                     key={service.id}
-                    className="bg-gray-900 text-white rounded-lg shadow p-4 flex flex-col"
+                    className="bg-gray-900 text-white rounded-xl shadow-xl p-4 flex flex-col transition-transform border border-gray-700"
                   >
-                    <h2 className="font-bold text-lg">{service.title}</h2>
-                    <p className="text-gray-300 mb-2 line-clamp-3">{service.description}</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <h2 className="font-bold text-xl text-yellow-400 line-clamp-2">{service.title}</h2>
+                    <p className="text-gray-300 text-sm mb-2 line-clamp-3">{service.description}</p>
+                    <div className="grid grid-cols-2 gap-2 my-2">
                       {service.serviceImages.slice(0, 4).map((img) => (
                         <img
                           key={img.id}
                           src={img.url}
                           alt=""
-                          className="h-28 w-full object-cover rounded"
+                          className="h-28 w-full object-cover rounded-lg border border-gray-600"
                         />
                       ))}
                     </div>
-                    <div className="flex justify-between gap-2 mt-4">
-                      <Link href="#umrah-service">
+                    <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
+                      <Link href="#umrah-service" passHref legacyBehavior>
                       <button
                         onClick={() => handleEdit(service)}
-                        className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50"
-                        disabled={loading || isEditing}
+                        className="bg-yellow-500 text-black px-4 py-1 rounded-lg hover:bg-yellow-600 disabled:opacity-50 text-sm font-semibold flex items-center"
+                        disabled={isAnyActionDisabled}
                       >
-                        Edit
+                        <PencilIcon className="h-4 w-4 mr-1"/> Edit
                       </button>
                       </Link>
                       <button
-                        onClick={() => {
-                          setDeleteId(service.id);
-                          setIsDeleteOpen(true);
-                        }}
-                        className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:opacity-50"
-                        disabled={loading || isEditing}
+                        onClick={() => confirmDelete(service.id)}
+                        className="bg-red-600 text-white px-4 py-1 rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-semibold flex items-center"
+                        disabled={isAnyActionDisabled}
                       >
-                        Delete
+                        <TrashIcon className="h-4 w-4 mr-1"/> Delete
                       </button>
                       <button
                         onClick={() => toggleActive(service.id, service.isActive)}
-                        className={`px-4 py-1 rounded disabled:opacity-50 ${
+                        className={`px-4 py-1 rounded-lg disabled:opacity-50 text-sm font-semibold flex items-center ${
                           service.isActive
-                            ? "bg-green-500 hover:bg-green-600"
-                            : "bg-gray-500 hover:bg-gray-600"
+                            ? "bg-green-600 text-white hover:bg-green-700"
+                            : "bg-gray-600 text-white hover:bg-gray-700"
                         }`}
-                        disabled={loading || isEditing}
+                        disabled={isAnyActionDisabled}
                       >
-                        {service.isActive ? "Active ✅" : "Inactive ❌"}
+                        {service.isActive ? <CheckCircleIcon className="h-4 w-4 mr-1"/> : <XCircleIcon className="h-4 w-4 mr-1"/>}
+                        {service.isActive ? "Active" : "Inactive"}
                       </button>
                     </div>
                   </div>
@@ -501,30 +551,22 @@ export default function UmrahServiceDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
+            <Dialog.Panel className="w-full max-w-md rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
               <Dialog.Title
-                className={`text-lg font-bold ${
-                  modalType === "success"
-                    ? "text-green-600"
-                    : modalType === "error"
-                    ? "text-red-600"
-                    : "text-yellow-600"
+                className={`text-2xl font-extrabold ${
+                  STATUS_MESSAGES[modalType].iconColor
                 }`}
               >
-                {modalType === "success"
-                  ? "Success 🎉"
-                  : modalType === "error"
-                  ? "Error ❌"
-                  : "Warning ⚠️"}
+                {STATUS_MESSAGES[modalType].title}
               </Dialog.Title>
-              <p className="mt-2">{modalMessage}</p>
-              <div className="mt-4">
+              <p className="mt-4 text-lg text-gray-300">{modalMessage}</p>
+              <div className="mt-6">
                 <button
-                  className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsModalOpen(false)}
                   disabled={loading}
                 >
-                  OK
+                  Close
                 </button>
               </div>
             </Dialog.Panel>
@@ -540,25 +582,27 @@ export default function UmrahServiceDashboard() {
         >
           <div className="fixed inset-0 bg-black/50" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-md rounded-2xl p-6 text-center shadow-xl bg-white text-black">
-              <Dialog.Title className="text-lg font-bold text-red-600">
-                Confirm Delete
+            <Dialog.Panel className="w-full max-w-sm rounded-xl p-6 text-center shadow-2xl bg-gray-800 text-white border border-gray-700">
+              <Dialog.Title className="text-xl font-bold text-red-500">
+                Confirm Deletion
               </Dialog.Title>
-              <p className="mt-2">Are you sure you want to delete this service?</p>
-              <div className="mt-4 flex justify-center gap-4">
+              <p className="mt-2 text-gray-300">
+                Are you absolutely sure you want to delete this service? This action cannot be undone.
+              </p>
+              <div className="mt-6 flex justify-center gap-4">
                 <button
-                  className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  className="bg-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
                   onClick={() => setIsDeleteOpen(false)}
                   disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                  className="bg-red-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
                   onClick={handleDelete}
                   disabled={loading}
                 >
-                  {loading ? "Deleting..." : "Delete"}
+                  {loading ? "Deleting..." : "Delete Permanently"}
                 </button>
               </div>
             </Dialog.Panel>

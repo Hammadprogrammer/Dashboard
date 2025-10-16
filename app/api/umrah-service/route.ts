@@ -1,6 +1,18 @@
+// app/api/umrah-service/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+import { v2 as cloudinary } from "cloudinary";
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
+
+// ✅ Configure Cloudinary Directly (Fix #3)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +20,52 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+/**
+ * Helper function to delete an image from Cloudinary (Safe Deletion).
+ */
+const deleteImage = async (publicId: string | null | undefined) => {
+  if (publicId) {
+    try {
+        await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+        console.warn(`⚠️ Cloudinary deletion failed for ID: ${publicId}. Error:`, error);
+    }
+  }
+};
+
+/**
+ * ✅ NEW Base64 Image Upload Technique (The Core Fix #2)
+ * @param imageFile The File object from the form data.
+ * @param folder Cloudinary folder name.
+ * @returns Object containing secure_url and public_id.
+ */
+const uploadImageBase64 = async (imageFile: File, folder: string) => {
+    // Convert File to Buffer
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Convert Buffer to Base64 String (Data URI)
+    const base64Image = `data:${imageFile.type};base64,${buffer.toString("base64")}`;
+
+    // Upload Base64 string directly to Cloudinary
+    const uploadResult: any = await cloudinary.uploader.upload(base64Image, { 
+        folder: folder,
+        resource_type: "image",
+    });
+
+    return {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+    };
+};
+
+// ---------------- OPTIONS ----------------
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200, headers: corsHeaders });
+}
+
 // ---------------- GET ----------------
+// ✅ Assumes file name is route.ts for correct Next.js App Router Functionality (Fix #1)
 export async function GET() {
   try {
     const services = await prisma.umrahService.findMany({
@@ -35,6 +92,11 @@ export async function POST(req: NextRequest) {
     const isActiveStr = formData.get("isActive") as string | null;
     const heroFile = formData.get("heroImage") as File | null;
     const serviceFiles = formData.getAll("serviceImages") as File[];
+    
+    // Check if heroFile is actually present (not just a placeholder File object)
+    const hasHeroFile = heroFile && heroFile.size > 0; 
+    // Check if serviceFiles actually contains files
+    const hasServiceFiles = serviceFiles.filter(f => f && f.size > 0).length > 0;
 
     if (!title || !description) {
       return NextResponse.json(
@@ -44,40 +106,21 @@ export async function POST(req: NextRequest) {
     }
     const isActive = isActiveStr === "true";
 
-    let heroImageUrl: string | undefined;
-    let heroImageId: string | undefined;
+    let heroUpload: { url: string; publicId: string } | undefined;
     let serviceUploads: { url: string; publicId: string }[] = [];
 
-    // --- Upload Hero Image ---
-    if (heroFile) {
-      const buffer = Buffer.from(await heroFile.arrayBuffer());
-      const uploadRes: any = await new Promise((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            { folder: "umrah-services/hero",  },
-            (err, result) => (err ? reject(err) : resolve(result))
-          )
-          .end(buffer);
-      });
-      heroImageUrl = uploadRes.secure_url;
-      heroImageId = uploadRes.public_id;
+    // --- Upload Hero Image (Base64) ---
+    if (hasHeroFile) {
+      heroUpload = await uploadImageBase64(heroFile, "umrah-services/hero");
     }
 
-    // --- Upload Service Gallery Images ---
-    if (serviceFiles.length > 0) {
-      for (const file of serviceFiles) {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const uploadRes: any = await new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream(
-              { folder: "umrah-services/gallery", },
-              (err, result) => (err ? reject(err) : resolve(result))
-            )
-            .end(buffer);
-        });
+    // --- Upload Service Gallery Images (Base64) ---
+    if (hasServiceFiles) {
+      for (const file of serviceFiles.filter(f => f && f.size > 0)) {
+        const result = await uploadImageBase64(file, "umrah-services/gallery");
         serviceUploads.push({
-          url: uploadRes.secure_url,
-          publicId: uploadRes.public_id,
+          url: result.url,
+          publicId: result.publicId,
         });
       }
     }
@@ -85,6 +128,7 @@ export async function POST(req: NextRequest) {
     // --- Update or Create ---
     let saved;
     if (id) {
+      // 🔄 Update existing
       const existing = await prisma.umrahService.findUnique({
         where: { id: parseInt(id) },
         include: { serviceImages: true },
@@ -96,52 +140,64 @@ export async function POST(req: NextRequest) {
           { status: 404, headers: corsHeaders }
         );
       }
+      
+      const updateData: any = {
+          title,
+          description,
+          isActive,
+      };
 
-      // 🔄 If a new hero image is uploaded, delete the old one first
-      if (heroImageId && existing.heroImageId) {
-        await cloudinary.uploader.destroy(existing.heroImageId);
+      // 1. Handle Hero Image Update
+      if (heroUpload) {
+        // If a new hero image is uploaded, delete the old one first
+        if (existing.heroImageId) {
+            await deleteImage(existing.heroImageId);
+        }
+        updateData.heroImage = heroUpload.url;
+        updateData.heroImageId = heroUpload.publicId;
+        // Ensure other image types are cleared/removed if switching type
+        updateData.serviceImages = { set: [] }; 
       }
-
-      // 🔄 If new gallery images are uploaded, delete the old ones and their records
+      
+      // 2. Handle Gallery Image Update (only if new files are provided)
       if (serviceUploads.length > 0) {
+        // Delete all old service images and their records
         for (const img of existing.serviceImages) {
-          if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
+          if (img.publicId) await deleteImage(img.publicId);
         }
         await prisma.serviceImage.deleteMany({
           where: { serviceId: existing.id },
         });
+
+        updateData.serviceImages = { create: serviceUploads };
+        // Clear hero image fields if switching type
+        updateData.heroImage = null;
+        updateData.heroImageId = null;
       }
 
       saved = await prisma.umrahService.update({
         where: { id: parseInt(id) },
-        data: {
-          title,
-          description,
-          isActive,
-          heroImage: heroImageUrl ?? existing.heroImage,
-          heroImageId: heroImageId ?? existing.heroImageId,
-          ...(serviceUploads.length > 0
-            ? { serviceImages: { create: serviceUploads } }
-            : {}),
-        },
+        data: updateData,
         include: { serviceImages: true },
       });
+      
     } else {
       // ➕ Create new
-      if (!heroFile && serviceFiles.length === 0) {
+      if (!hasHeroFile && !hasServiceFiles) {
         return NextResponse.json(
           { error: "Image is required for new service" },
           { status: 400, headers: corsHeaders }
         );
       }
       
-      // New logic for deleting existing hero image tours
-      if (heroFile) {
+      // NOTE: This complex logic for deleting *other* hero services on creation
+      // of a new hero service is unusual but retained from your original code:
+      if (hasHeroFile) {
           const existingHeroService = await prisma.umrahService.findFirst({
               where: { NOT: { heroImage: null } }
           });
-          if (existingHeroService) {
-              await cloudinary.uploader.destroy(existingHeroService.heroImageId!);
+          if (existingHeroService && existingHeroService.heroImageId) {
+              await deleteImage(existingHeroService.heroImageId);
               await prisma.umrahService.delete({ where: { id: existingHeroService.id } });
           }
       }
@@ -151,8 +207,8 @@ export async function POST(req: NextRequest) {
           title,
           description,
           isActive,
-          heroImage: heroImageUrl || null,
-          heroImageId: heroImageId || null,
+          heroImage: heroUpload?.url || null,
+          heroImageId: heroUpload?.publicId || null,
           serviceImages: { create: serviceUploads },
         },
         include: { serviceImages: true },
@@ -174,16 +230,16 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, isActive } = body;
-    if (!id) {
+    if (!id || typeof isActive !== 'boolean') {
       return NextResponse.json(
-        { error: "ID is required" },
+        { error: "ID and isActive boolean are required" },
         { status: 400, headers: corsHeaders }
       );
     }
 
     const updated = await prisma.umrahService.update({
       where: { id: parseInt(id) },
-      data: { isActive: Boolean(isActive) },
+      data: { isActive: isActive },
     });
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
@@ -218,12 +274,14 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // ✅ Delete Hero Image
     if (existing.heroImageId) {
-      await cloudinary.uploader.destroy(existing.heroImageId);
+      await deleteImage(existing.heroImageId);
     }
+    // ✅ Delete Gallery Images
     if (existing.serviceImages.length > 0) {
       for (const img of existing.serviceImages) {
-        if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
+        if (img.publicId) await deleteImage(img.publicId);
       }
     }
 
@@ -242,9 +300,4 @@ export async function DELETE(req: NextRequest) {
       { status: 500, headers: corsHeaders }
     );
   }
-}
-
-// ---------------- OPTIONS ----------------
-export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
