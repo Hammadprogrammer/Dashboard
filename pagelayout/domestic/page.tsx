@@ -499,6 +499,7 @@ export default function DomesticDashboardPage() {
                   onClick={() => setIsDeleteOpen(false)}
                   disabled={isProcessing}
                 >
+                  
                   Cancel
                 </button>
                 <button
