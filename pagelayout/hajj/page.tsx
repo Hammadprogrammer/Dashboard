@@ -271,7 +271,7 @@ export default function HajjDashboardPage() {
         <input
           type="text"
           name="title"
-          placeholder="Package Title (e.g., Luxury 21-Day Hajj)"
+          placeholder="Package Title "
           value={title}
           onChange={handleChange}
           className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
@@ -283,7 +283,7 @@ export default function HajjDashboardPage() {
         <input
           type="text"
           name="price"
-          placeholder="Price (e.g., 5000.00)"
+          placeholder="Price "
           value={price}
           onChange={handleChange}
           className="border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black placeholder-gray-400 transition-colors"
@@ -409,7 +409,7 @@ export default function HajjDashboardPage() {
               </div>
               
               <p className="text-lg font-bold text-green-400">
-                ${pkg.price.toFixed(2)}
+                {pkg.price.toFixed(2)}
               </p>
               
               {/* Action Buttons */}
@@ -499,9 +499,7 @@ export default function HajjDashboardPage() {
               <Dialog.Title className="text-xl font-bold text-red-500">
                 Confirm Deletion
               </Dialog.Title>
-              <p className="mt-2 text-gray-300">
-                Are you absolutely sure you want to delete this package? This action cannot be undone.
-              </p>
+  
               <div className="mt-6 flex justify-center gap-4">
                 <button
                   className="bg-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-600 text-white transition-colors"
