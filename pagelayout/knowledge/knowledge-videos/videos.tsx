@@ -1,3 +1,4 @@
+// VideoDashboard.tsx (Your client component remains the same)
 "use client";
 import { useState, useEffect, Fragment, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
@@ -48,7 +49,8 @@ export default function VideoDashboard() {
       
       if (!res.ok) {
          const errorDetail = await res.text().catch(() => "No response body.");
-         throw new Error(`Server returned status ${res.status}. **Please check that app/api/videos/route.ts exists and restart the server.**`);
+         // Improved error message to guide the user
+         throw new Error(`Server returned status ${res.status}. Error Detail: ${errorDetail}`);
       }
       
       const data = await res.json();
@@ -92,13 +94,13 @@ export default function VideoDashboard() {
       });
       
       if (!res.ok) {
+        // Better error handling for API response
         const errorData = await res.json().catch(() => ({ error: `Server returned status ${res.status}` }));
-        throw new Error(errorData.error || "Failed to save video.");
+        throw new Error(errorData.error || `Failed to save video. Status: ${res.status}`);
       }
       
       await res.json();
       
-      // Update: resetForm() automatically clears editingId, enabling buttons
       showModal(editingId ? " Video updated!" : " Video added!", "success");
       resetForm();
       fetchItems();
@@ -117,6 +119,7 @@ export default function VideoDashboard() {
     setIsProcessing(true);
     const newStatus = !item.isActive;
     try {
+      // Use query parameters for PATCH
       const res = await fetch(`/api/videos?id=${item.id}&isActive=${newStatus}`, {
         method: "PATCH", 
       });
@@ -137,7 +140,6 @@ export default function VideoDashboard() {
   };
   
   const handleEdit = (item: VideoItem) => {
-    // Setting editingId enables the Edit Form and disables other list actions
     setEditingId(item.id);
     setTitle(item.title);
     setDescription(item.description || "");

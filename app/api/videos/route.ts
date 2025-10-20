@@ -1,5 +1,6 @@
+// app/api/videos/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma"; // सुनिश्चित करें कि यह पथ सही है
+import prisma from "@/lib/prisma"; // Ensure this path is correct and the file uses the global instance logic
 
 // Standard CORS headers
 const corsHeaders = {
@@ -11,7 +12,6 @@ const corsHeaders = {
 // Handle GET request to fetch all videos
 export async function GET() {
   try {
-    // Fetches all videos (active and inactive) for the dashboard view
     const videos = await prisma.video.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -23,6 +23,28 @@ export async function GET() {
       { status: 500, headers: corsHeaders }
     );
   }
+}
+
+// Helper function to sanitize and convert video URL
+function convertToEmbedUrl(videoUrl: string): string {
+  let finalUrl = videoUrl;
+  
+  // 1. Normalize protocols to ensure proper parsing
+  if (finalUrl.startsWith("http://")) {
+      finalUrl = finalUrl.replace("http://", "https://");
+  }
+
+  // 2. Automatic conversion for common YouTube links to embed format
+  if (finalUrl.includes("youtube.com/watch?v=")) {
+    finalUrl = finalUrl.replace("watch?v=", "embed/");
+  } else if (finalUrl.includes("youtu.be/")) {
+    finalUrl = finalUrl.replace("youtu.be/", "youtube.com/embed/");
+  }
+  
+  // 3. Remove all query parameters (e.g., ?t=, &list=) to clean up the URL
+  finalUrl = finalUrl.split('?')[0];
+  
+  return finalUrl;
 }
 
 // Handle POST request to create or update a video
@@ -38,14 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Automatic conversion for common YouTube links to embed format
-    let finalUrl = videoUrl;
-    if (finalUrl.includes("youtube.com/watch?v=")) {
-      finalUrl = finalUrl.replace("watch?v=", "embed/");
-    } else if (finalUrl.includes("youtu.be/")) {
-      finalUrl = finalUrl.replace("youtu.be/", "youtube.com/embed/");
-    }
-    finalUrl = finalUrl.split('?')[0];
+    // Use the robust URL conversion helper
+    const finalUrl = convertToEmbedUrl(videoUrl);
 
     if (id) {
       // Update existing video
@@ -70,12 +86,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle PATCH request to toggle isActive status (Matches client-side query logic)
+// Handle PATCH request to toggle isActive status
 export async function PATCH(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    // 'true' string से boolean में बदलें
+    // Ensure 'true' string is correctly converted to boolean
     const newStatus = searchParams.get("isActive") === 'true'; 
 
     if (!id) {
