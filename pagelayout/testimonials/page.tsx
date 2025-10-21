@@ -208,7 +208,7 @@ export default function TestimonialDashboard() {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-center text-white bg-[#24294b] py-3 rounded-lg shadow-lg">
+      <h1 className="text-3xl font-bold mb-8 text-center text-white  py-3 rounded-lg shadow-lg">
         <StarIcon className="h-8 w-8 inline-block mr-2 text-yellow-400"/> Testimonial Dashboard
       </h1>
 
