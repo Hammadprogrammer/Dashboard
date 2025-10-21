@@ -70,6 +70,7 @@ export default function ContactForm() {
     try {
       const payload = { ...formData, recaptchaToken };
 
+      // API call to the serverless function
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,6 +81,7 @@ export default function ContactForm() {
       setResponseMsg(result.message || 'Message sent successfully!');
 
       if (response.ok) {
+        // Clear form on success
         setFormData({
           name: '',
           fatherName: '',
@@ -100,6 +102,7 @@ export default function ContactForm() {
     }
   };
 
+  // Ensure this variable is set in Vercel as NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   const sitekey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
 
   return (
@@ -107,6 +110,8 @@ export default function ContactForm() {
       onSubmit={handleSubmit}
       className="space-y-4 max-w-lg mx-auto p-4 border rounded-md shadow-lg"
     >
+      {/* Form Fields... (omitted for brevity) */}
+      
       {/* Name */}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">

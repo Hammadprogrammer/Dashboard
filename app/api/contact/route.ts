@@ -35,19 +35,29 @@ export async function OPTIONS() {
 
 // ✅ POST handler for contact form
 export async function POST(req: Request) {
-  try {
-    const {
-      name,
-      fatherName,
-      nic,
-      category,
-      email,
-      phone,
-      service,
-      message,
-      recaptchaToken,
-    } = await req.json();
+  const reqData = await req.json(); // Use a local variable to capture request body
+  const {
+    name,
+    fatherName,
+    nic,
+    category,
+    email,
+    phone,
+    service,
+    message,
+    recaptchaToken,
+  } = reqData;
 
+  // Get environment variables for logging and validation
+  const {
+    EMAIL_HOST,
+    EMAIL_PORT,
+    EMAIL_USER,
+    EMAIL_PASS,
+    EMAIL_FROM,
+  } = process.env;
+
+  try {
     // Verify reCAPTCHA
     const validCaptcha = await verifyRecaptcha(recaptchaToken);
     if (!validCaptcha) {
@@ -58,41 +68,43 @@ export async function POST(req: Request) {
     }
 
     // Validate env variables
-    const {
-      EMAIL_HOST,
-      EMAIL_PORT,
-      EMAIL_SECURE,
-      EMAIL_USER,
-      EMAIL_PASS,
-      EMAIL_FROM,
-    } = process.env;
-
     if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+      // Log an error if environment variables are missing
+      console.error("Missing critical email environment variables in Vercel settings.");
       throw new Error("Missing required email environment variables");
     }
 
-    // ✅ Office 365 SMTP config (Vercel-safe)
+    // 🛠️ CORRECTED: GoDaddy/SecureServer SMTP configuration
+    // Use the official Nodemailer guide for secure connections on Vercel
     const transporter = nodemailer.createTransport({
-      host: EMAIL_HOST,
+      host: EMAIL_HOST, // Should be smtpout.secureserver.net
       port: Number(EMAIL_PORT) || 587,
-      secure: false, // Office365 requires false on port 587
-      requireTLS: true,
+      secure: false, // Use false for port 587 (STARTTLS)
+      requireTLS: true, // Force STARTTLS
       auth: {
         user: EMAIL_USER,
-        pass: EMAIL_PASS,
+        pass: EMAIL_PASS, // Make sure this is the App Password if 2FA is on
       },
-      tls: {
-        ciphers: "SSLv3",
-      },
+      // Added robust timeouts to catch connection issues quickly
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 5000, // 5 seconds
+      // Removed: tls: { ciphers: "SSLv3" } - Often causes issues unnecessarily
     });
 
     // ✅ Verify SMTP connection
     await transporter
       .verify()
-      .then(() => console.log("✅ SMTP connection successful"))
+      .then(() => console.log("✅ SMTP connection successful on Vercel"))
       .catch((err) => {
-        console.error("❌ SMTP connection failed:", err);
-        throw new Error("SMTP connection failed");
+        // 🚨 IMPORTANT: This will show the exact GoDaddy/Vercel error in the logs
+        console.error("❌ SMTP connection failed. Check GoDaddy Credentials and Host/Port.", {
+          host: EMAIL_HOST,
+          port: EMAIL_PORT,
+          user: EMAIL_USER,
+          error: { code: err.code, message: err.message, response: err.response },
+        });
+        // Throw an explicit error for the user/system to see
+        throw new Error("SMTP connection failed: " + (err.code || err.message));
       });
 
     // ✅ Email content
@@ -120,11 +132,13 @@ export async function POST(req: Request) {
       { headers: corsHeaders }
     );
   } catch (error: any) {
+    // 🚨 Log all error details when sending mail fails
     console.error(" Email sending error:", {
       message: error.message,
-      stack: error.stack,
       code: error.code,
       response: error.response,
+      // Log the required form data on failure for context
+      formData: { name, email, phone, service },
     });
 
     return NextResponse.json(
