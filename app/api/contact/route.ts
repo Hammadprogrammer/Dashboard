@@ -1,4 +1,4 @@
-export const runtime = "nodejs"; 
+export const runtime = "nodejs"; // required for nodemailer to work on Vercel
 
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
@@ -9,6 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// ✅ reCAPTCHA verification
 async function verifyRecaptcha(token: string) {
   try {
     const secret = process.env.RECAPTCHA_SECRET_KEY;
@@ -32,6 +33,7 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
+// ✅ POST handler for contact form
 export async function POST(req: Request) {
   try {
     const {
@@ -46,6 +48,7 @@ export async function POST(req: Request) {
       recaptchaToken,
     } = await req.json();
 
+    // Verify reCAPTCHA
     const validCaptcha = await verifyRecaptcha(recaptchaToken);
     if (!validCaptcha) {
       return NextResponse.json(
@@ -54,6 +57,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate env variables
     const {
       EMAIL_HOST,
       EMAIL_PORT,
@@ -64,13 +68,14 @@ export async function POST(req: Request) {
     } = process.env;
 
     if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
-      throw new Error("Missing email environment variables");
+      throw new Error("Missing required email environment variables");
     }
 
+    // ✅ Office 365 SMTP config (Vercel-safe)
     const transporter = nodemailer.createTransport({
       host: EMAIL_HOST,
       port: Number(EMAIL_PORT) || 587,
-      secure: false, 
+      secure: false, // Office365 requires false on port 587
       requireTLS: true,
       auth: {
         user: EMAIL_USER,
@@ -81,15 +86,16 @@ export async function POST(req: Request) {
       },
     });
 
+    // ✅ Verify SMTP connection
     await transporter
       .verify()
-      .then(() => console.log(" SMTP connection successful"))
+      .then(() => console.log("✅ SMTP connection successful"))
       .catch((err) => {
-        console.error(" SMTP connection failed:", err);
+        console.error("❌ SMTP connection failed:", err);
         throw new Error("SMTP connection failed");
       });
 
-    // ✅ Compose mail
+    // ✅ Email content
     const mailOptions = {
       from: EMAIL_FROM || EMAIL_USER,
       to: EMAIL_USER,
@@ -107,7 +113,6 @@ export async function POST(req: Request) {
       `,
     };
 
-    // ✅ Send mail
     await transporter.sendMail(mailOptions);
 
     return NextResponse.json(
