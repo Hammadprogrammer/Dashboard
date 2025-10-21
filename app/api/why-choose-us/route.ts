@@ -1,20 +1,16 @@
-// app/api/why-choose-us/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
 
-// Initialize Prisma client
 const prisma = new PrismaClient();
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Common CORS headers for all responses
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -22,7 +18,6 @@ const corsHeaders = {
 };
 
 /**
- * Helper function to delete an image from Cloudinary.
  * @param publicId The public ID of the image to delete.
  */
 const deleteImage = async (publicId: string | null | undefined) => {
@@ -30,25 +25,21 @@ const deleteImage = async (publicId: string | null | undefined) => {
     try {
         await cloudinary.uploader.destroy(publicId);
     } catch (error) {
-        console.warn(`⚠️ Cloudinary deletion failed for ID: ${publicId}. Error:`, error);
+        console.warn(` Cloudinary deletion failed for ID: ${publicId}. Error:`, error);
     }
   }
 };
 
 /**
- * NEW Base64 Image Upload Technique (The Core Fix)
  * @param imageFile The File object from the form data.
  * @returns Object containing secure_url and public_id.
  */
 const uploadImageBase64 = async (imageFile: File) => {
-    // Convert File to Buffer
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    // Convert Buffer to Base64 String (Data URI)
     const base64Image = `data:${imageFile.type};base64,${buffer.toString("base64")}`;
 
-    // Upload Base64 string directly to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(base64Image, { 
         folder: "why_choose_us",
         resource_type: "image",
@@ -61,13 +52,10 @@ const uploadImageBase64 = async (imageFile: File) => {
 };
 
 
-// ---------------- OPTIONS Request: Handle CORS preflight ----------------
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
 
-// ---------------- GET Request: Fetch all items ----------------
-// API file name MUST be route.ts for this to work correctly as per your fix #1
 export async function GET() {
   try {
     const items = await prisma.whyChooseUsItem.findMany({
@@ -75,7 +63,7 @@ export async function GET() {
     });
     return NextResponse.json(items, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("❌ Failed to fetch Why Choose Us items:", error);
+    console.error(" Failed to fetch Why Choose Us items:", error);
     return NextResponse.json(
       { error: "Failed to fetch items due to a server error." },
       { status: 500, headers: corsHeaders }
@@ -83,7 +71,6 @@ export async function GET() {
   }
 }
 
-// ---------------- POST Request: Create or update an item ----------------
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -103,24 +90,19 @@ export async function POST(request: NextRequest) {
     let imageUrl = null;
     let publicId = null;
 
-    // 1. Handle image upload using Base64 method if a new file is provided
     if (imageFile && imageFile.size > 0) {
-      // ✅ Using Base64 Upload Fix (Fix #2)
       const result = await uploadImageBase64(imageFile);
       imageUrl = result.secure_url;
       publicId = result.public_id;
     }
 
-    // 2. Update existing item
     if (id) {
       const dataToUpdate: any = { title, description };
       
-      // If a new image was uploaded (i.e., imageUrl is set)
       if (imageUrl && publicId) {
         dataToUpdate.imageUrl = imageUrl;
         dataToUpdate.publicId = publicId;
         
-        // Delete old image (Fix #3: Old Image Deletion Check)
         if (oldPublicId) {
             await deleteImage(oldPublicId); 
         }
@@ -134,9 +116,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
     } 
     
-    // 3. Create new item
     else {
-      // Must have a new image for creation
       if (!imageUrl || !publicId) {
         return NextResponse.json(
           { error: "Image file is required for new items." },
@@ -157,7 +137,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
     }
   } catch (error) {
-    console.error("❌ Failed to save Why Choose Us item:", error);
+    console.error(" Failed to save Why Choose Us item:", error);
     return NextResponse.json(
         { error: "Failed to save item. Check server logs for Cloudinary/Prisma error details." }, 
         { status: 500, headers: corsHeaders }
@@ -165,7 +145,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ---------------- DELETE Request: Delete an item ----------------
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -186,17 +165,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Item not found." }, { status: 404, headers: corsHeaders });
     }
 
-    // Delete image from Cloudinary (Fix #3)
     await deleteImage(itemToDelete.publicId);
 
-    // Delete the item from the database
     await prisma.whyChooseUsItem.delete({
       where: { id: parseInt(id) },
     });
 
     return NextResponse.json({ message: "Item deleted successfully." }, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("❌ Failed to delete Why Choose Us item:", error);
+    console.error(" Failed to delete Why Choose Us item:", error);
     return NextResponse.json(
       { error: "Failed to delete item due to a server error." },
       { status: 500, headers: corsHeaders }
@@ -204,7 +181,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// ---------------- PATCH Request: Toggle active status ----------------
 export async function PATCH(request: NextRequest) {
   try {
     const { id, isActive } = await request.json();
@@ -223,7 +199,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(updatedItem, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("❌ Failed to toggle active status:", error);
+    console.error(" Failed to toggle active status:", error);
     return NextResponse.json({ error: "Failed to update status." }, { status: 500, headers: corsHeaders });
   }
 }

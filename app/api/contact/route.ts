@@ -15,7 +15,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// Function to verify reCAPTCHA token (unchanged)
 async function verifyRecaptcha(token: string) {
   const secretKey = process.env.RECAPTCHA_SECRET_KEY;
   if (!secretKey) {
@@ -44,16 +43,15 @@ export async function POST(request: Request) {
     const { 
       name, 
       fatherName, 
-      nic,          // Optional
+      nic,         
       category, 
-      email,        // Optional
+      email,        
       phone,
-      service,      // REQUIRED now
-      message,      // Optional
+      service,      
+      message,     
       recaptchaToken,
     } = await request.json();
 
-    // SERVER-SIDE VALIDATION: Checks for Name, Father's Name, Category, Phone, SERVICE, and reCAPTCHA Token
     if (!name || !fatherName || !category || !phone || !service || !recaptchaToken) {
       return NextResponse.json(
         { message: "Missing required fields (Name, Father's Name, Category, Phone, Service) or reCAPTCHA token." },
@@ -61,7 +59,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify reCAPTCHA token
     const isHuman = await verifyRecaptcha(recaptchaToken);
     if (!isHuman) {
       return NextResponse.json(
@@ -70,7 +67,6 @@ export async function POST(request: Request) {
       );
     }
     
-    // Default optional fields to a clear message if empty
     const nicValue = nic || "N/A (Not Provided)";
     const emailValue = email || "N/A (Not Provided)";
     const messageValue = message || "N/A (Not Provided)"; 

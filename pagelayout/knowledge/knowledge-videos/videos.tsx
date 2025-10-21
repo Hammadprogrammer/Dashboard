@@ -49,7 +49,6 @@ export default function VideoDashboard() {
       
       if (!res.ok) {
          const errorDetail = await res.text().catch(() => "No response body.");
-         // Improved error message to guide the user
          throw new Error(`Server returned status ${res.status}. Error Detail: ${errorDetail}`);
       }
       
@@ -57,7 +56,7 @@ export default function VideoDashboard() {
       setItems(data);
     } catch (err) {
       console.error(" Fetch Error:", err);
-      showModal(`⚠️ Error fetching videos. Details: ${err instanceof Error ? err.message : 'Unknown'}`, "error");
+      showModal(` Error fetching videos. Details: ${err instanceof Error ? err.message : 'Unknown'}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +93,6 @@ export default function VideoDashboard() {
       });
       
       if (!res.ok) {
-        // Better error handling for API response
         const errorData = await res.json().catch(() => ({ error: `Server returned status ${res.status}` }));
         throw new Error(errorData.error || `Failed to save video. Status: ${res.status}`);
       }
@@ -106,20 +104,18 @@ export default function VideoDashboard() {
       fetchItems();
     } catch (err) {
       console.error(" Save Error:", err);
-      showModal(`⚠️ Error saving video: ${err instanceof Error ? err.message : 'Unknown error'}`, "error");
+      showModal(` Error saving video: ${err instanceof Error ? err.message : 'Unknown error'}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleToggleActive = async (item: VideoItem) => {
-    // Disable action if currently editing
     if (editingId) return; 
     
     setIsProcessing(true);
     const newStatus = !item.isActive;
     try {
-      // Use query parameters for PATCH
       const res = await fetch(`/api/videos?id=${item.id}&isActive=${newStatus}`, {
         method: "PATCH", 
       });
@@ -148,7 +144,6 @@ export default function VideoDashboard() {
   };
 
   const confirmDelete = (id: number) => {
-    // Disable action if currently editing
     if (editingId) return; 
     
     setDeleteId(id);
@@ -188,14 +183,12 @@ export default function VideoDashboard() {
         <PlayCircleIcon className="h-8 w-8 mr-2" /> Video Management Dashboard
       </h1>
 
-      {/* --- Loading Spinner/Processing Overlay --- */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
       )}
 
-      {/* --- CRUD FORM --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -237,7 +230,6 @@ export default function VideoDashboard() {
           {editingId && (
             <button
               type="button"
-              // Cancel calls resetForm(), which clears editingId and re-enables list buttons
               onClick={resetForm} 
               disabled={isProcessing}
               className="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors font-semibold"
@@ -248,7 +240,6 @@ export default function VideoDashboard() {
         </div>
       </form>
 
-      {/* --- VIDEO LIST --- */}
       {!isLoading && items.length === 0 ? (
         <p className="text-center text-gray-500">No videos uploaded yet.</p>
       ) : (
@@ -280,7 +271,6 @@ export default function VideoDashboard() {
               <p className="text-gray-400 text-sm line-clamp-3 mb-4 flex-grow">{item.description || "No description provided."}</p>
               
               <div className="flex justify-between gap-2 mt-auto">
-                {/* Active/Inactive is DISABLED if isAnyActionDisabled is true (i.e., processing OR editingId is set) */}
                 <button
                   onClick={() => handleToggleActive(item)}
                   disabled={isAnyActionDisabled}
@@ -296,13 +286,12 @@ export default function VideoDashboard() {
                 <Link href="#video-heading">
                 <button
                   onClick={() => handleEdit(item)}
-                  disabled={isProcessing} // Edit button should only be disabled during processing, not by editingId itself.
+                  disabled={isProcessing} 
                   className="bg-yellow-500 text-black px-4 py-1 rounded hover:bg-yellow-600 disabled:opacity-50 transition-colors font-semibold"
                 >
                   Edit
                 </button>
                 </Link>
-                {/* Delete is DISABLED if isAnyActionDisabled is true */}
                 <button
                   onClick={() => confirmDelete(item.id)}
                   disabled={isAnyActionDisabled}

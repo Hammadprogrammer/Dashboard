@@ -1,8 +1,7 @@
-// /api/testimonials/route.ts (UPDATED with Base64 upload logic)
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import cloudinary from "@/lib/cloudinary"; // Assuming this correctly loads your configured Cloudinary client
+import cloudinary from "@/lib/cloudinary"; 
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,12 +9,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// Handle OPTIONS requests
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
 
-// GET all testimonials
 export async function GET() {
   try {
     const data = await prisma.testimonial.findMany({
@@ -23,7 +20,7 @@ export async function GET() {
     });
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ GET error:", error.message);
+    console.error(" GET error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch testimonials", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -31,12 +28,10 @@ export async function GET() {
   }
 }
 
-// POST (Create or Update) a testimonial
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const id = formData.get("id") as string | null;
-    // Use Number() for robust parsing, ensuring validation handles potential NaN
     const rating = Number(formData.get("rating")); 
     const description = formData.get("description") as string;
     const name = formData.get("name") as string;
@@ -60,11 +55,8 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | undefined;
     let imageId: string | undefined;
 
-    // --- Base64 Cloudinary Upload Fix ---
     if (imageFile && imageFile.size > 0) {
-      // 1. Convert File to a Buffer
       const buffer = Buffer.from(await imageFile.arrayBuffer());
-      // 2. Convert Buffer to a Base64 string for direct upload
       const base64Image = `data:${imageFile.type};base64,${buffer.toString("base64")}`;
 
       const uploadRes: any = await cloudinary.uploader.upload(base64Image, {
@@ -75,11 +67,9 @@ export async function POST(req: NextRequest) {
       imageUrl = uploadRes.secure_url;
       imageId = uploadRes.public_id;
     }
-    // ------------------------------------
 
     let savedTestimonial;
     if (id) {
-      // --- UPDATE ---
       const existing = await prisma.testimonial.findUnique({
         where: { id: parseInt(id) },
       });
@@ -91,7 +81,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Delete old image only if a new image was successfully uploaded
       if (imageId && existing.imageId) { 
         await cloudinary.uploader.destroy(existing.imageId);
       }
@@ -103,14 +92,12 @@ export async function POST(req: NextRequest) {
           description,
           name,
           title,
-          // Use new values if available, otherwise keep existing
           image: imageUrl ?? existing.image,
           imageId: imageId ?? existing.imageId,
         },
       });
     } else {
-      // --- CREATE ---
-      // Image must be present for new entry
+
       if (!imageUrl || !imageId) {
         return NextResponse.json(
           { error: "Image is required for new entry" },
@@ -132,7 +119,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(savedTestimonial, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ POST error:", error.message);
+    console.error(" POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save testimonial", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -140,7 +127,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE  testimonial
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -174,7 +160,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: "Testimonial deleted" }, { status: 200, headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ DELETE error:", error.message);
+    console.error("DELETE error:", error.message);
     return NextResponse.json(
       { error: "Failed to delete testimonial", details: error.message },
       { status: 500, headers: corsHeaders }

@@ -12,27 +12,24 @@ import {
   PhotoIcon,
 } from "@heroicons/react/24/outline";
 
-// --- Interface ---
 interface Package {
   id: number;
   title: string;
   price: number;
   imageUrl: string;
   isActive: boolean;
-  category: "Economic" | "Standard" | "Premium"; // Strict categories
+  category: "Economic" | "Standard" | "Premium"; 
 }
 
 const categories: Package["category"][] = ["Economic", "Standard", "Premium"];
 
-// --- Status Messages Map ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" },
-  error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-500" },
+  success: { title: "Success ", iconColor: "text-green-500" },
+  error: { title: "Error ", iconColor: "text-red-500" },
+  warning: { title: "Warning ", iconColor: "text-yellow-500" },
 } as const;
 
 export default function HajjDashboardPage() {
-  // --- State Management ---
   const [packages, setPackages] = useState<Package[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formState, setFormState] = useState({
@@ -46,30 +43,25 @@ export default function HajjDashboardPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">("success");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
   
-  // --- Form Handlers ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     if (name === "price") {
-        // Allows numbers and up to two decimal places
         if (/^\d*(\.\d{0,2})?$/.test(value) || value === "") {
             setFormState(prev => ({ ...prev, [name]: value }));
         }
@@ -81,14 +73,12 @@ export default function HajjDashboardPage() {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const selected = e.target.files?.[0] || null;
       setFile(selected);
-      // Create a local URL for instant preview, revoking old one if exists
       if (preview) URL.revokeObjectURL(preview);
       setPreview(selected ? URL.createObjectURL(selected) : null);
   }
 
   const resetForm = () => {
-    if (preview) URL.revokeObjectURL(preview); // Clean up preview URL
-    setEditingId(null);
+    if (preview) URL.revokeObjectURL(preview); 
     setFormState({ title: "", price: "", category: categories[0] });
     setFile(null);
     setPreview(null);
@@ -100,13 +90,12 @@ export default function HajjDashboardPage() {
   const handleEdit = (pkg: Package) => {
     setEditingId(pkg.id);
     setFormState({ title: pkg.title, price: pkg.price.toString(), category: pkg.category });
-    setPreview(pkg.imageUrl); // Set existing image as preview
+    setPreview(pkg.imageUrl); 
     setFile(null); 
     if (fileInputRef.current) fileInputRef.current.value = "";
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // --- Data Fetching ---
   const fetchPackages = async () => {
     try {
       setIsLoading(true);
@@ -119,9 +108,9 @@ export default function HajjDashboardPage() {
       setPackages(data);
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Fetch Error:", error.message);
+      console.error(" Fetch Error:", error.message);
       setPackages([]);
-      showModal(`⚠️ Error fetching packages: ${error.message}`, "error");
+      showModal(` Error fetching packages: ${error.message}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -129,22 +118,19 @@ export default function HajjDashboardPage() {
 
   useEffect(() => {
     fetchPackages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- CRUD Operations ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { title, price, category } = formState;
     
-    // Validation
-    if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
+    if (!title.trim()) return showModal(" Enter package title", "warning");
     const priceValue = parseFloat(price);
     if (isNaN(priceValue) || priceValue <= 0)
-      return showModal("⚠️ Enter a valid price (e.g., 5000.00)", "warning");
-    if (!category) return showModal("⚠️ Select category", "warning");
+      return showModal(" Enter a valid price (e.g., 5000.00)", "warning");
+    if (!category) return showModal(" Select category", "warning");
     if (!editingId && !file)
-      return showModal("⚠️ Please upload an image for the new package", "warning");
+      return showModal(" Please upload an image for the new package", "warning");
 
     setIsProcessing(true);
     try {
@@ -160,13 +146,13 @@ export default function HajjDashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save package.");
 
-      showModal(editingId ? "✅ Package updated successfully!" : "✅ New Package saved!", "success");
+      showModal(editingId ? " Package updated successfully!" : " New Package saved!", "success");
       resetForm();
       fetchPackages();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save Error:", error.message);
-      showModal(`⚠️ Error saving package: ${error.message}`, "error");
+      console.error(" Save Error:", error.message);
+      showModal(` Error saving package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -182,12 +168,12 @@ export default function HajjDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle active");
-      showModal("✅ Status updated successfully!", "success");
+      showModal(" Status updated successfully!", "success");
       fetchPackages();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Toggle Error:", error.message);
-      showModal(`⚠️ Could not update status: ${error.message}`, "error");
+      console.error(" Toggle Error:", error.message);
+      showModal(` Could not update status: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -206,15 +192,15 @@ export default function HajjDashboardPage() {
       const res = await fetch(`/api/hajj?id=${deleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
-        showModal("🗑️ Package deleted successfully!", "success");
+        showModal(" Package deleted successfully!", "success");
         fetchPackages();
       } else {
         throw new Error(data.error || "Failed to delete package");
       }
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Delete Error:", error.message);
-      showModal(`⚠️ Could not delete package: ${error.message}`, "error");
+      console.error(" Delete Error:", error.message);
+      showModal(` Could not delete package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
@@ -222,7 +208,6 @@ export default function HajjDashboardPage() {
     }
   };
   
-  // Helper to determine badge color
   const getCategoryColor = (cat: Package["category"]) => {
       if (cat === "Premium") return "bg-red-600";
       if (cat === "Standard") return "bg-blue-600";
@@ -233,10 +218,8 @@ export default function HajjDashboardPage() {
   const isAnyActionDisabled = isProcessing || isLoading;
   const { title, price, category } = formState;
 
-  // --- Render ---
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
-      {/* Page Title */}
       <h1
         className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center"
         id="hajj-heading"
@@ -244,7 +227,6 @@ export default function HajjDashboardPage() {
         <StarIcon className="h-8 w-8 mr-2" /> Hajj Packages Dashboard
       </h1>
 
-      {/* Loading/Processing Overlay */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -256,7 +238,6 @@ export default function HajjDashboardPage() {
         </div>
       )}
 
-      {/* --- Upload / Edit Form --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -267,7 +248,6 @@ export default function HajjDashboardPage() {
           <PlusCircleIcon className="h-5 w-5 ml-2" />
         </h2>
         
-        {/* Title Input */}
         <input
           type="text"
           name="title"
@@ -279,7 +259,6 @@ export default function HajjDashboardPage() {
           required
         />
         
-        {/* Price Input */}
         <input
           type="text"
           name="price"
@@ -291,12 +270,10 @@ export default function HajjDashboardPage() {
           required
         />
         
-        {/* Category Select */}
         <select
           name="category"
           value={category}
           onChange={handleChange}
-          // Disable category change when editing
           disabled={editingId !== null || isProcessing} 
           className={`border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors cursor-pointer ${
             editingId !== null ? "opacity-60 cursor-not-allowed" : ""
@@ -315,7 +292,6 @@ export default function HajjDashboardPage() {
         )}
 
 
-        {/* File Input */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
           <label className="text-gray-400 flex-shrink-0 flex items-center">
             <PhotoIcon className="h-5 w-5 mr-2" /> 
@@ -331,7 +307,6 @@ export default function HajjDashboardPage() {
           />
         </div>
 
-        {/* Image Preview */}
         {preview && (
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
@@ -347,7 +322,6 @@ export default function HajjDashboardPage() {
           </div>
         )}
 
-        {/* Form Actions */}
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
@@ -369,7 +343,6 @@ export default function HajjDashboardPage() {
         </div>
       </form>
 
-      {/* --- Packages List --- */}
       <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b border-gray-700 pb-2">
         Available Packages ({packages.length})
       </h2>
@@ -412,7 +385,6 @@ export default function HajjDashboardPage() {
                 {pkg.price.toFixed(2)}
               </p>
               
-              {/* Action Buttons */}
               <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
                 <button
                   onClick={() => toggleActive(pkg)}
@@ -455,7 +427,6 @@ export default function HajjDashboardPage() {
         </div>
       )}
 
-      {/* --- MODAL: Status Message --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -486,7 +457,6 @@ export default function HajjDashboardPage() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

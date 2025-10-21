@@ -1,10 +1,8 @@
-// app/api/umrah/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import prisma from "@/lib/prisma";
 
-// Ensure cloudinary config is done once, usually in a lib/cloudinary.ts file.
-// Assuming it's correctly configured based on your working environment.
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +10,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ---------------- GET ----------------
 export async function GET() {
   try {
     const packages = await prisma.umrahPackage.findMany({
@@ -28,7 +25,6 @@ export async function GET() {
   }
 }
 
-// ---------------- POST (CREATE + UPDATE with Image) ----------------
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -56,32 +52,27 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = isActiveStr === "true";
-    const normalizedCategory = category; // Assuming category is already normalized (Economic, Standard, Premium)
+    const normalizedCategory = category; 
 
     let imageUrl: string | undefined;
     let publicId: string | undefined;
 
-    // 🔴 CORE FIX: Base64 Upload Logic
     if (file) {
         try {
-            // 1. Convert File to ArrayBuffer
             const arrayBuffer = await file.arrayBuffer();
-            // 2. Convert ArrayBuffer to Base64 String
             const base64Image = Buffer.from(arrayBuffer).toString("base64");
             const dataUri = `data:${file.type};base64,${base64Image}`;
 
-            // Handle existing image deletion if updating
             if (id) {
                 const existing = await prisma.umrahPackage.findUnique({
                     where: { id: parseInt(id) },
                 });
                 if (existing?.publicId) {
                     await cloudinary.uploader.destroy(existing.publicId);
-                    console.log("🗑️ Old image deleted from Cloudinary during update:", existing.publicId);
+                    console.log(" Old image deleted from Cloudinary during update:", existing.publicId);
                 }
             }
             
-            // 3. Upload Base64 Data URI directly
             const uploadRes: any = await cloudinary.uploader.upload(dataUri, {
                 folder: "umrah-packages",
                 width: 400,
@@ -102,7 +93,6 @@ export async function POST(req: NextRequest) {
     
     let saved;
     if (id) {
-      // 🟢 UPDATE existing package
       saved = await prisma.umrahPackage.update({
         where: { id: parseInt(id) },
         data: {
@@ -114,7 +104,6 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      // 🚩 ENFORCE: If creating a NEW package, delete the existing package in that category first.
       const existingPackage = await prisma.umrahPackage.findFirst({
         where: { category: normalizedCategory },
       });
@@ -123,10 +112,9 @@ export async function POST(req: NextRequest) {
         await prisma.umrahPackage.delete({
           where: { id: existingPackage.id },
         });
-        console.log("🗑️ Old package deleted from database before new one was created:", existingPackage.id);
+        console.log(" Old package deleted from database before new one was created:", existingPackage.id);
       }
       
-      // 🟢 CREATE new package
       saved = await prisma.umrahPackage.create({
         data: {
           title,
@@ -149,7 +137,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH, DELETE, OPTIONS (No change needed) ----------------
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -170,7 +157,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(updated, { headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ PATCH /api/umrah error:", error.message);
+    console.error("PATCH /api/umrah error:", error.message);
     return NextResponse.json(
       { error: "Failed to toggle active", details: error.message },
       { status: 500, headers: corsHeaders }
@@ -204,7 +191,7 @@ export async function DELETE(req: NextRequest) {
     if (existing.publicId) {
       try {
         await cloudinary.uploader.destroy(existing.publicId);
-        console.log("🗑️ Image deleted from Cloudinary:", existing.publicId);
+        console.log(" Image deleted from Cloudinary:", existing.publicId);
       } catch (err: any) {
         console.error("Cloudinary delete failed:", err.message);
       }

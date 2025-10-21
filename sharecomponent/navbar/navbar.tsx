@@ -130,7 +130,6 @@ const Navbar = () => {
         </nav>
       </div>
 
-      {/* Login Form Modal */}
       {showLogin && (
         <LoginForm
           onClose={() => setShowLogin(false)}

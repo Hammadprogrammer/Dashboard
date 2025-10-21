@@ -1,7 +1,5 @@
-// app/api/international-tour/route.ts - BASE64 FIX APPLIED
 
 import { NextRequest, NextResponse } from "next/server";
-// Assuming you have your Cloudinary configuration exported as default from this file
 import cloudinary from "@/lib/cloudinary"; 
 import prisma from "@/lib/prisma";
 
@@ -11,9 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// --- HELPER FUNCTION: Deletes Tour by ID and cleans up Cloudinary ---
 async function deleteTourAndCloudinary(tourId: number) {
-  // ... (This function remains the same) ...
   const existing = await prisma.internationalTour.findUnique({
     where: { id: tourId },
     include: { sliderImages: true },
@@ -21,27 +17,24 @@ async function deleteTourAndCloudinary(tourId: number) {
 
   if (!existing) return;
 
-  // 1. Delete background image from Cloudinary
   if (existing.backgroundId) {
     try {
       await cloudinary.uploader.destroy(existing.backgroundId);
     } catch (err) {
-      console.warn("⚠️ Could not destroy background image:", err);
+      console.warn(" Could not destroy background image:", err);
     }
   }
   
-  // 2. Delete slider images from Cloudinary
   for (const img of existing.sliderImages) {
     if (img.publicId) {
       try {
         await cloudinary.uploader.destroy(img.publicId);
       } catch (err) {
-        console.warn("⚠️ Could not destroy slider image:", err);
+        console.warn(" Could not destroy slider image:", err);
       }
     }
   }
 
-  // 3. Delete slider records and the tour record from Prisma
   await prisma.sliderImage.deleteMany({
     where: { tourId: existing.id },
   });
@@ -50,17 +43,14 @@ async function deleteTourAndCloudinary(tourId: number) {
   });
 }
 
-// ✅ NEW HELPER: Converts File to Base64 Data URL
 async function fileToBase64(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64 = buffer.toString('base64');
-    // Cloudinary Base64 requires the data URL prefix
     return `data:${file.type};base64,${base64}`;
 }
 
 
-// ---------------- GET ----------------
 export async function GET() {
   try {
     const tours = await prisma.internationalTour.findMany({
@@ -77,7 +67,6 @@ export async function GET() {
   }
 }
 
-// ---------------- POST (Create + Update) ----------------
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -100,9 +89,7 @@ export async function POST(req: NextRequest) {
     let backgroundId: string | undefined;
     let sliderUploads: { url: string; publicId: string }[] = [];
 
-    // --- 1. Upload Background Image (Base64) ---
     if (backgroundFile && backgroundFile.size > 0) {
-      // ⚠️ FIX APPLIED: Using Base64 upload for reliability
       const base64Data = await fileToBase64(backgroundFile);
       
       const uploadRes: any = await cloudinary.uploader.upload(base64Data, { 
@@ -112,10 +99,8 @@ export async function POST(req: NextRequest) {
       backgroundId = uploadRes.public_id;
     }
 
-    // --- 2. Upload Slider Images (Base64) ---
     if (sliderFiles.length > 0) {
       for (const file of sliderFiles) {
-        // ⚠️ FIX APPLIED: Using Base64 upload for reliability
         const base64Data = await fileToBase64(file);
         
         const uploadRes: any = await cloudinary.uploader.upload(base64Data, {
@@ -129,10 +114,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // --- 3. Update or Create ---
     let saved;
     if (id) {
-      // LOGIC FOR UPDATING (Remains largely the same, cleanup uses destroy())
       const existing = await prisma.internationalTour.findUnique({
         where: { id: parseInt(id) },
         include: { sliderImages: true },
@@ -145,12 +128,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Cleanup old background if new one is uploaded
       if (backgroundId && existing.backgroundId) {
         await cloudinary.uploader.destroy(existing.backgroundId);
       }
 
-      // Cleanup old sliders if new ones are uploaded
       if (sliderUploads.length > 0) {
         for (const img of existing.sliderImages) {
           if (img.publicId) await cloudinary.uploader.destroy(img.publicId);
@@ -175,7 +156,6 @@ export async function POST(req: NextRequest) {
         include: { sliderImages: true },
       });
     } else {
-      // LOGIC FOR CREATING (Enforcing single background tour)
       if (!backgroundFile && sliderFiles.length === 0) {
         return NextResponse.json(
           { error: "Image is required for new tour" },
@@ -183,7 +163,6 @@ export async function POST(req: NextRequest) {
         );
       }
       
-      // ENFORCEMENT: Delete the existing background tour if a new one is being created.
       if (backgroundFile) {
         const existingBackgroundTour = await prisma.internationalTour.findFirst({
             where: { backgroundUrl: { not: null } },
@@ -211,7 +190,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
     console.error("POST error:", error.message);
-    // This detailed error logging helps solve the 500 error!
     return NextResponse.json(
       { error: "Failed to save tour", details: error.message, stack: error.stack },
       { status: 500, headers: corsHeaders }
@@ -219,9 +197,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH, DELETE, OPTIONS (Remain the same) ----------------
 export async function PATCH(req: NextRequest) {
-  // ... (PATCH logic remains the same) ...
   try {
     const body = await req.json();
     const { id, isActive } = body;
@@ -247,7 +223,6 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  // ... (DELETE logic remains the same) ...
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

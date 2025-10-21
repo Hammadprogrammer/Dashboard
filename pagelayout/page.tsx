@@ -50,9 +50,9 @@ export default function DomesticDashboardPage() {
       const data: Package[] = await res.json();
       setPackages(data);
     } catch (err) {
-      console.error("❌ Fetch Error:", err);
+      console.error(" Fetch Error:", err);
       setPackages([]);
-      showModal("⚠️ Error fetching packages", "error");
+      showModal(" Error fetching packages", "error");
     } finally {
       setFetching(false);
     }
@@ -65,18 +65,18 @@ export default function DomesticDashboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
+    if (!title.trim()) return showModal(" Enter package title", "warning");
     if (/^\d+$/.test(title.trim()))
-      return showModal("⚠️ Title cannot be only numbers", "warning");
+      return showModal(" Title cannot be only numbers", "warning");
 
     if (!price || parseFloat(price) <= 0)
-      return showModal("⚠️ Enter valid price", "warning");
+      return showModal(" Enter valid price", "warning");
     if (!/^\d+(\.\d{1,2})?$/.test(price))
-      return showModal("⚠️ Price must be a valid number", "warning");
+      return showModal(" Price must be a valid number", "warning");
 
-    if (!category) return showModal("⚠️ Select category", "warning");
+    if (!category) return showModal(" Select category", "warning");
     if (!id && !file)
-      return showModal("⚠️ Please upload an image", "warning");
+      return showModal(" Please upload an image", "warning");
 
     setLoading(true);
     try {
@@ -97,12 +97,12 @@ export default function DomesticDashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      showModal("✅ Package saved successfully!", "success");
+      showModal(" Package saved successfully!", "success");
       resetForm();
       fetchPackages();
     } catch (err) {
-      console.error("❌ Save Error:", err);
-      showModal("⚠️ Error saving package", "error");
+      console.error(" Save Error:", err);
+      showModal(" Error saving package", "error");
     } finally {
       setLoading(false);
     }
@@ -118,11 +118,11 @@ export default function DomesticDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle active");
-      showModal("✅ Status updated successfully!", "success");
+      showModal(" Status updated successfully!", "success");
       fetchPackages();
     } catch (err) {
-      console.error("❌ Toggle Error:", err);
-      showModal("⚠️ Could not update status", "error");
+      console.error(" Toggle Error:", err);
+      showModal(" Could not update status", "error");
     }
   };
 
@@ -137,14 +137,14 @@ export default function DomesticDashboardPage() {
       setDeleting(true);
       const res = await fetch(`/api/domestic?id=${deleteId}`, { method: "DELETE" });
       if (res.ok) {
-        showModal("🗑️ Package deleted successfully!", "success");
+        showModal(" Package deleted successfully!", "success");
         fetchPackages();
       } else {
-        showModal("❌ Failed to delete package", "error");
+        showModal(" Failed to delete package", "error");
       }
     } catch (err) {
-      console.error("❌ Delete Error:", err);
-      showModal("⚠️ Could not delete package", "error");
+      console.error(" Delete Error:", err);
+      showModal(" Could not delete package", "error");
     } finally {
       setDeleting(false);
       setIsDeleteOpen(false);
@@ -170,14 +170,12 @@ export default function DomesticDashboardPage() {
         🏕️ Domestic Packages Dashboard
       </h1>
 
-      {/* --- LOADER --- */}
       {fetching && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400"></div>
         </div>
       )}
 
-      {/* --- FORM --- */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-lg rounded-2xl p-6 mb-10"
@@ -259,7 +257,6 @@ export default function DomesticDashboardPage() {
         </div>
       </form>
 
-      {/* --- LIST --- */}
       {!fetching && packages.length === 0 ? (
         <p className="text-center text-gray-500">No packages available.</p>
       ) : (
@@ -289,7 +286,7 @@ export default function DomesticDashboardPage() {
                       : "bg-red-500 hover:bg-red-600"
                   }`}
                 >
-                  {pkg.isActive ? "Active ✅" : "Inactive ❌"}
+                  {pkg.isActive ? "Active " : "Inactive "}
                 </button>
 
                 <button
@@ -317,7 +314,6 @@ export default function DomesticDashboardPage() {
         </div>
       )}
 
-      {/* --- MODALS --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -337,10 +333,10 @@ export default function DomesticDashboardPage() {
                 }`}
               >
                 {modalType === "success"
-                  ? "Success 🎉"
+                  ? "Success "
                   : modalType === "error"
-                  ? "Error ❌"
-                  : "Warning ⚠️"}
+                  ? "Error "
+                  : "Warning "}
               </Dialog.Title>
               <p className="mt-2">{modalMessage}</p>
               <div className="mt-4">

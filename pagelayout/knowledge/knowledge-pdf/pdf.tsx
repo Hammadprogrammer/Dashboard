@@ -153,7 +153,6 @@ export default function KnowledgeDashboard() {
     setCurrentPublicId(item.publicId);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    // Scroll smoothly to the form for better UX
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 

@@ -1,4 +1,3 @@
-// DomesticDashboardPage.tsx - Updated with better error messages and logic.
 "use client";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
@@ -13,7 +12,6 @@ import {
   PlusCircleIcon,
 } from "@heroicons/react/24/outline";
 
-// --- Interface ---
 interface Package {
   id: number;
   title: string;
@@ -25,16 +23,14 @@ interface Package {
 
 const categories: Package["category"][] = ["Economic", "Standard", "Premium"];
 
-// --- Status Messages Map ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" },
-  error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" },
+  success: { title: "Success ", iconColor: "text-green-500" },
+  error: { title: "Error ", iconColor: "text-red-500" },
+  warning: { title: "Warning ", iconColor: "text-yellow-400" },
 } as const;
 
 
 export default function DomesticDashboardPage() {
-  // --- State Management ---
   const [packages, setPackages] = useState<Package[]>([]);
   const [id, setId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -45,11 +41,9 @@ export default function DomesticDashboardPage() {
 
   const [isProcessing, setIsProcessing] = useState(true);
 
-  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
@@ -58,17 +52,14 @@ export default function DomesticDashboardPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
 
-  // --- Form Handlers ---
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // Allow numbers, dot, and up to two decimal places
     if (/^\d*(\.\d{0,2})?$/.test(val) || val === "") setPrice(val);
   }
 
@@ -89,12 +80,10 @@ export default function DomesticDashboardPage() {
     setPreview(pkg.imageUrl);
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: "smooth" }); 
   };
 
   const resetForm = () => {
-    // Revoke object URL if it's not an existing package image
     if (preview && !packages.some(p => p.imageUrl === preview)) {
         URL.revokeObjectURL(preview);
     }
@@ -113,16 +102,15 @@ export default function DomesticDashboardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic Validation
-    if (!title.trim()) return showModal("⚠️ Enter package title", "warning");
+    if (!title.trim()) return showModal(" Enter package title", "warning");
     const priceValue = parseFloat(price);
     if (isNaN(priceValue) || priceValue <= 0)
-      return showModal("⚠️ Enter valid price (e.g., 100.00)", "warning");
-    if (!category) return showModal("⚠️ Select category", "warning");
+      return showModal(" Enter valid price (e.g., 100.00)", "warning");
+    if (!category) return showModal(" Select category", "warning");
     if (!id && !file)
-      return showModal("⚠️ Please upload an image for the new package", "warning");
+      return showModal(" Please upload an image for the new package", "warning");
     if (id && !file && !preview)
-        return showModal("⚠️ Cannot proceed with update: Image required.", "warning");
+        return showModal(" Cannot proceed with update: Image required.", "warning");
 
 
     setIsProcessing(true);
@@ -139,25 +127,22 @@ export default function DomesticDashboardPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        // IMPORTANT FIX: Use the detailed error from the API route for a better user experience
         const errorMessage = data.error || "Failed to save package due to an unknown error.";
         throw new Error(errorMessage);
       }
 
-      showModal(id ? "✅ Package updated successfully!" : "✅ Package saved/replaced successfully!", "success");
+      showModal(id ? " Package updated successfully!" : " Package saved/replaced successfully!", "success");
       resetForm();
       fetchPackages();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save Error:", error.message);
-      // Show the specific error message to the user
-      showModal(`⚠️ Error saving package: ${error.message}`, "error");
+      console.error(" Save Error:", error.message);
+      showModal(` Error saving package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // --- Data Fetching ---
   const fetchPackages = async () => {
     try {
       setIsProcessing(true);
@@ -167,9 +152,9 @@ export default function DomesticDashboardPage() {
       setPackages(data);
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Fetch Error:", error.message);
+      console.error(" Fetch Error:", error.message);
       setPackages([]);
-      showModal(`⚠️ Error fetching packages: ${error.message}`, "error");
+      showModal(` Error fetching packages: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -177,10 +162,8 @@ export default function DomesticDashboardPage() {
 
   useEffect(() => {
     fetchPackages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- CRUD Operations ---
   const toggleActive = async (pkg: Package) => {
     setIsProcessing(true);
     try {
@@ -191,12 +174,12 @@ export default function DomesticDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle active");
-      showModal("✅ Status updated successfully!", "success");
+      showModal(" Status updated successfully!", "success");
       fetchPackages();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Toggle Error:", error.message);
-      showModal(`⚠️ Could not update status: ${error.message}`, "error");
+      console.error(" Toggle Error:", error.message);
+      showModal(` Could not update status: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -214,15 +197,15 @@ export default function DomesticDashboardPage() {
       const res = await fetch(`/api/domestic?id=${deleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
-        showModal("🗑️ Package deleted successfully!", "success");
+        showModal(" Package deleted successfully!", "success");
         fetchPackages();
       } else {
         throw new Error(data.error || "Failed to delete package");
       }
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Delete Error:", error.message);
-      showModal(`⚠️ Could not delete package: ${error.message}`, "error");
+      console.error(" Delete Error:", error.message);
+      showModal(` Could not delete package: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
@@ -239,15 +222,12 @@ export default function DomesticDashboardPage() {
 
   const isAnyActionDisabled = isProcessing || !!id;
 
-  // --- Render ---
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
-      {/* Page Title */}
       <h1 className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center" id="domestic">
         <MapPinIcon className="h-8 w-8 mr-2" /> Domestic Packages Dashboard
       </h1>
 
-      {/* Loading/Processing Overlay */}
       {isProcessing && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -257,7 +237,6 @@ export default function DomesticDashboardPage() {
         </div>
       )}
 
-      {/* --- Upload / Edit Form --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -268,7 +247,6 @@ export default function DomesticDashboardPage() {
             <PlusCircleIcon className="h-5 w-5 ml-2" />
         </h2>
 
-        {/* Title Input */}
         <input
           type="text"
           placeholder="Package Title "
@@ -279,7 +257,6 @@ export default function DomesticDashboardPage() {
           required
         />
 
-        {/* Price Input */}
         <input
           type="text"
           placeholder="Price "
@@ -290,11 +267,10 @@ export default function DomesticDashboardPage() {
           required
         />
 
-        {/* Category Select */}
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Package["category"])}
-          disabled={!!id || isProcessing} // Disable category on edit
+          disabled={!!id || isProcessing} 
           className={`border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors cursor-pointer ${
             id ? "opacity-60 cursor-not-allowed" : ""
           }`}
@@ -311,7 +287,6 @@ export default function DomesticDashboardPage() {
             <p className="text-xs text-gray-400">Category is fixed when editing an existing package.</p>
         )}
 
-        {/* File Input */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
             <label className="text-gray-400 flex-shrink-0 flex items-center">
                 <PhotoIcon className="h-5 w-5 mr-2" />
@@ -327,7 +302,6 @@ export default function DomesticDashboardPage() {
             />
         </div>
 
-        {/* Image Preview */}
         {preview && (
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
@@ -336,7 +310,6 @@ export default function DomesticDashboardPage() {
               alt="Package Preview"
               className="w-full h-48 object-cover rounded-lg border border-gray-600"
               onError={(e) => {
-                // Fallback in case of broken image URL
                 e.currentTarget.src = "/placeholder.png";
                 e.currentTarget.onerror = null;
               }}
@@ -344,7 +317,6 @@ export default function DomesticDashboardPage() {
           </div>
         )}
 
-        {/* Form Actions */}
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
@@ -366,7 +338,6 @@ export default function DomesticDashboardPage() {
         </div>
       </form>
 
-      {/* --- Packages List --- */}
       <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b border-gray-700 pb-2">
         Available Packages ({packages.length})
       </h2>
@@ -449,7 +420,6 @@ export default function DomesticDashboardPage() {
         </div>
       )}
 
-      {/* --- MODAL: Status Message --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -480,7 +450,6 @@ export default function DomesticDashboardPage() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

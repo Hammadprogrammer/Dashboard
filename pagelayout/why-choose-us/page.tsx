@@ -1,4 +1,3 @@
-// WhyChooseUsDashboard.tsx
 "use client";
 
 import { useState, useEffect, Fragment, useRef } from "react";
@@ -14,7 +13,6 @@ import {
   LightBulbIcon, 
 } from "@heroicons/react/24/outline";
 
-// --- Interface ---
 interface WhyChooseUsItem {
   id: number;
   title: string;
@@ -24,36 +22,30 @@ interface WhyChooseUsItem {
   isActive: boolean;
 }
 
-// --- Status Messages Map ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" },
-  error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-500" },
+  success: { title: "Success ", iconColor: "text-green-500" },
+  error: { title: "Error ", iconColor: "text-red-500" },
+  warning: { title: "Warning ", iconColor: "text-yellow-500" },
 } as const;
 
 
 export default function WhyChooseUsDashboard() {
-  // --- State Management ---
   const [items, setItems] = useState<WhyChooseUsItem[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   
-  // States to store existing image details for edit/delete
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [currentPublicId, setCurrentPublicId] = useState<string | null>(null);
   
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // --- Loading States ---
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Refs ---
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">("success");
@@ -61,18 +53,15 @@ export default function WhyChooseUsDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
   
-  // --- Data Fetching ---
   const fetchItems = async () => {
     try {
       setIsLoading(true);
-      // Ensure no-store to always fetch the latest data from the API route
       const res = await fetch("/api/why-choose-us", { cache: "no-store" }); 
       if (!res.ok) {
         const errorData = await res.json();
@@ -82,8 +71,8 @@ export default function WhyChooseUsDashboard() {
       setItems(data);
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Fetch Error:", error.message);
-      showModal(`⚠️ Could not load data. Please check the network connection.`, "error"); 
+      console.error(" Fetch Error:", error.message);
+      showModal(` Could not load data. Please check the network connection.`, "error"); 
     } finally {
       setIsLoading(false);
     }
@@ -91,14 +80,11 @@ export default function WhyChooseUsDashboard() {
 
   useEffect(() => {
     fetchItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Form Handlers ---
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setImageFile(file);
-    // When a new file is selected, clear the currentImageUrl to show the new file preview
     if (file) {
         setCurrentImageUrl(null);
     }
@@ -119,14 +105,14 @@ export default function WhyChooseUsDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
-      return showModal("⚠️ Title and description are required", "warning");
+      return showModal(" Title and description are required", "warning");
     }
 
     if (!editingId && !imageFile) {
-        return showModal("⚠️ Image is required for new items", "warning");
+        return showModal(" Image is required for new items", "warning");
     }
     if (editingId && !imageFile && !currentImageUrl) {
-        return showModal("⚠️ Image is required. Please upload one or ensure the existing image is loaded.", "warning");
+        return showModal(" Image is required. Please upload one or ensure the existing image is loaded.", "warning");
     }
 
 
@@ -139,13 +125,11 @@ export default function WhyChooseUsDashboard() {
       formData.append("id", String(editingId));
       if (imageFile) {
         formData.append("imageFile", imageFile);
-        // Only append oldPublicId if a new file is being uploaded to trigger deletion
         if (currentPublicId) { 
             formData.append("oldPublicId", currentPublicId);
         }
       } 
     } else {
-      // Creating a new item
       formData.append("imageFile", imageFile as File);
     }
 
@@ -157,19 +141,18 @@ export default function WhyChooseUsDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      showModal(editingId ? "✅ Item updated successfully!" : "✅ New Item saved!", "success");
+      showModal(editingId ? " Item updated successfully!" : " New Item saved!", "success");
       resetForm();
       fetchItems();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save Error:", error.message);
-      showModal(`⚠️ Error saving item: ${error.message}`, "error");
+      console.error(" Save Error:", error.message);
+      showModal(` Error saving item: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // --- CRUD Operations Handlers ---
   const handleEdit = (item: WhyChooseUsItem) => {
     setEditingId(item.id);
     setTitle(item.title);
@@ -198,13 +181,13 @@ export default function WhyChooseUsDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete");
       
-      showModal("🗑️ Item deleted successfully!", "success");
+      showModal(" Item deleted successfully!", "success");
       setDeleteId(null);
       fetchItems();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Delete Error:", error.message);
-      showModal(`⚠️ Could not delete item: ${error.message}`, "error");
+      console.error(" Delete Error:", error.message);
+      showModal(` Could not delete item: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
@@ -224,12 +207,12 @@ export default function WhyChooseUsDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle status");
       
-      showModal("✅ Status updated successfully!", "success");
+      showModal(" Status updated successfully!", "success");
       fetchItems();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Toggle Error:", error.message);
-      showModal(`⚠️ Could not update status: ${error.message}`, "error");
+      console.error(" Toggle Error:", error.message);
+      showModal(` Could not update status: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -239,10 +222,8 @@ export default function WhyChooseUsDashboard() {
   
   const previewUrl = imageFile ? URL.createObjectURL(imageFile) : currentImageUrl;
 
-  // --- Render ---
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
-      {/* Page Title */}
       <h1
         className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center"
         id="why-choose-us-heading"
@@ -250,7 +231,6 @@ export default function WhyChooseUsDashboard() {
         <LightBulbIcon className="h-8 w-8 mr-2" /> Why Choose Us Dashboard
       </h1>
 
-      {/* Loading/Processing Overlay */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -262,7 +242,6 @@ export default function WhyChooseUsDashboard() {
         </div>
       )}
 
-      {/* --- Upload / Edit Form --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -273,7 +252,6 @@ export default function WhyChooseUsDashboard() {
           <PlusCircleIcon className="h-5 w-5 ml-2" />
         </h2>
         
-        {/* Title Input */}
         <input
           type="text"
           placeholder="Title (e.g., Best Price Guarantee)"
@@ -284,7 +262,6 @@ export default function WhyChooseUsDashboard() {
           required
         />
         
-        {/* Description Input */}
         <textarea
           placeholder="Detailed Description (e.g., We offer a 100% money back guarantee...)"
           value={description}
@@ -295,7 +272,6 @@ export default function WhyChooseUsDashboard() {
           required
         />
 
-        {/* File Input */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
           <label className="text-gray-400 flex-shrink-0 flex items-center">
             <PhotoIcon className="h-5 w-5 mr-2" /> 
@@ -311,7 +287,6 @@ export default function WhyChooseUsDashboard() {
           />
         </div>
 
-        {/* Image Preview */}
         {previewUrl && (
           <div className="mt-4">
             <p className="text-sm text-gray-300 mb-2">Image Preview:</p>
@@ -327,7 +302,6 @@ export default function WhyChooseUsDashboard() {
           </div>
         )}
 
-        {/* Form Actions */}
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
@@ -349,7 +323,6 @@ export default function WhyChooseUsDashboard() {
         </div>
       </form>
 
-      {/* --- Items List --- */}
       <h2 className="text-2xl font-bold text-gray-200 mb-6 border-b border-gray-700 pb-2">
         Current Items ({items.length})
       </h2>
@@ -392,7 +365,6 @@ export default function WhyChooseUsDashboard() {
               
               <p className="text-sm text-gray-300 line-clamp-3 mb-3">{item.description}</p>
               
-              {/* Action Buttons */}
               <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
                 <button
                   onClick={() => toggleActive(item)}
@@ -435,7 +407,6 @@ export default function WhyChooseUsDashboard() {
         </div>
       )}
 
-      {/* --- MODAL: Status Message --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -466,7 +437,6 @@ export default function WhyChooseUsDashboard() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"

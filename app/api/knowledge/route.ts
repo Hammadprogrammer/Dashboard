@@ -22,9 +22,9 @@ const deleteFile = async (publicId: string | null) => {
   if (!publicId) return;
   try {
     await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
-    console.log(`✅ Cloudinary file deleted: ${publicId}`);
+    console.log(` Cloudinary file deleted: ${publicId}`);
   } catch (err) {
-    console.error("❌ Cloudinary delete error:", err);
+    console.error(" Cloudinary delete error:", err);
 
   }
 };
@@ -38,7 +38,7 @@ export async function GET() {
     });
     return NextResponse.json(items, { status: 200, headers: corsHeaders });
   } catch (error) {
-    console.error("❌ Failed to fetch knowledge items:", error);
+    console.error(" Failed to fetch knowledge items:", error);
     return NextResponse.json(
       { error: "Failed to fetch items due to a server error." },
       { status: 500, headers: corsHeaders }
@@ -130,8 +130,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newItem, { status: 201, headers: corsHeaders });
   } catch (error: any) {
-    console.error("❌ Failed to save knowledge item:", error);
-    // Detailed error for debugging, generic for client
+    console.error(" Failed to save knowledge item:", error);
     return NextResponse.json(
       { error: "Failed to save item.", details: error.message || "An unknown server error occurred." },
       { status: 500, headers: corsHeaders }
@@ -180,7 +179,7 @@ export async function DELETE(request: NextRequest) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ Failed to delete knowledge item:", error);
+    console.error(" Failed to delete knowledge item:", error);
     return NextResponse.json(
       { error: "Failed to delete item.", details: error.message || "An unknown server error occurred." },
       { status: 500, headers: corsHeaders }

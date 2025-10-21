@@ -11,11 +11,10 @@ import {
   XCircleIcon,
   StarIcon, 
   PhotoIcon,
-  GlobeAsiaAustraliaIcon, // New icon for International
-  QueueListIcon, // New icon for Slider Images
+  GlobeAsiaAustraliaIcon, 
+  QueueListIcon, 
 } from "@heroicons/react/24/outline";
 
-// --- Interfaces (Define your data structure) ---
 interface SliderImage {
   id: number;
   url: string;
@@ -31,39 +30,31 @@ interface Tour {
   sliderImages: SliderImage[]; // Array of slider images
 }
 
-// --- Status Messages Map (Copied from Hajj Dashboard) ---
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-500" },
-  error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-500" },
+  success: { title: "Success ", iconColor: "text-green-500" },
+  error: { title: "Error ", iconColor: "text-red-500" },
+  warning: { title: "Warning ", iconColor: "text-yellow-500" },
 } as const;
 
 export default function InternationalTourDashboard() {
-  // --- State Management ---
   const [tours, setTours] = useState<Tour[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  // Image type defaults to background
   const [imageType, setImageType] = useState<"background" | "slider">("background");
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [sliderFiles, setSliderFiles] = useState<File[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // --- Loading States ---
-  const [isProcessing, setIsProcessing] = useState(false); // Renamed for consistency
-  const [isLoading, setIsLoading] = useState(true); // Renamed for consistency
-
-  // Keys used to force re-render and clear file inputs
+  const [isProcessing, setIsProcessing] = useState(false); 
+  const [isLoading, setIsLoading] = useState(true); 
   const [backgroundKey, setBackgroundKey] = useState(0);
   const [sliderKey, setSliderKey] = useState(0);
 
-  // --- Refs ---
-  const formRef = useRef<HTMLFormElement | null>(null); // Consistent ref naming
+  const formRef = useRef<HTMLFormElement | null>(null); 
   const backgroundInputRef = useRef<HTMLInputElement | null>(null);
   const sliderInputRef = useRef<HTMLInputElement | null>(null);
 
-  // --- Modal States ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
@@ -72,14 +63,12 @@ export default function InternationalTourDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- Modal Control ---
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
     setModalMessage(msg);
     setModalType(type);
     setIsModalOpen(true);
   };
 
-  // ✅ Fetch tours (renamed loading state variables)
   const fetchTours = async () => {
     try {
       setIsLoading(true);
@@ -92,9 +81,9 @@ export default function InternationalTourDashboard() {
       setTours(data);
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Fetch Error:", error.message);
+      console.error(" Fetch Error:", error.message);
       setTours([]);
-      showModal(`⚠️ Error fetching tours: ${error.message}`, "error");
+      showModal(` Error fetching tours: ${error.message}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -102,10 +91,8 @@ export default function InternationalTourDashboard() {
 
   useEffect(() => {
       fetchTours();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Reset form
   const resetForm = () => {
     setEditingId(null);
     setTitle("");
@@ -114,12 +101,10 @@ export default function InternationalTourDashboard() {
     setBackgroundFile(null);
     setSliderFiles([]);
     setIsActive(true);
-    // Use refs to clear file inputs directly
     if (backgroundInputRef.current) backgroundInputRef.current.value = "";
     if (sliderInputRef.current) sliderInputRef.current.value = "";
   };
 
-  // --- Image Handlers ---
   const onBackgroundFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setBackgroundFile(e.target.files?.[0] || null);
   }
@@ -128,25 +113,23 @@ export default function InternationalTourDashboard() {
     setSliderFiles(e.target.files ? Array.from(e.target.files) : []);
   }
 
-  // ✅ Handle Submit (Create or Update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
 
     if (!title.trim() || !description.trim()) {
       setIsProcessing(false);
-      return showModal("⚠️ Title and Description are required", "warning");
+      return showModal("Title and Description are required", "warning");
     }
     
-    // Validation for new tour (no editingId)
     if (!editingId) {
         if (imageType === "background" && !backgroundFile) {
             setIsProcessing(false);
-            return showModal("⚠️ Please upload a background image for a new tour", "warning");
+            return showModal("Please upload a background image for a new tour", "warning");
         }
         if (imageType === "slider" && sliderFiles.length === 0) {
             setIsProcessing(false);
-            return showModal("⚠️ Please upload at least one slider image for a new tour", "warning");
+            return showModal(" Please upload at least one slider image for a new tour", "warning");
         }
     }
 
@@ -159,7 +142,6 @@ export default function InternationalTourDashboard() {
       formData.append("id", String(editingId));
     }
     
-    // Append files - only append if a new file is selected
     if (imageType === "background" && backgroundFile) {
       formData.append("backgroundImage", backgroundFile);
     }
@@ -176,10 +158,10 @@ export default function InternationalTourDashboard() {
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
       let successMessage = editingId 
-        ? "✅ Tour updated successfully!" 
+        ? "Tour updated successfully!" 
         : backgroundFile
-          ? "✅ New Background Tour saved!" 
-          : "✅ New Slider Tour saved!";
+          ? " New Background Tour saved!" 
+          : " New Slider Tour saved!";
 
       showModal(successMessage, "success");
       
@@ -187,45 +169,38 @@ export default function InternationalTourDashboard() {
       fetchTours();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save Error:", error.message);
-      showModal(`⚠️ Error saving tour: ${error.message}`, "error");
+      console.error(" Save Error:", error.message);
+      showModal(` Error saving tour: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // ✅ Edit handler
   const handleEdit = (tour: Tour) => {
     setEditingId(tour.id);
     setTitle(tour.title);
     setDescription(tour.description);
     setIsActive(tour.isActive);
     
-    // Clear file inputs, we only allow *replacing* during edit
     setBackgroundFile(null); 
     setSliderFiles([]);
 
-    // Determine image type based on existing data to pre-select dropdown
     if (tour.backgroundUrl) {
       setImageType("background");
     } else if (tour.sliderImages.length > 0) {
       setImageType("slider");
     } else {
-      // Default if neither exists (shouldn't happen on a valid tour)
       setImageType("background");
     }
 
-    // Scroll to the form
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ✅ Delete confirmation trigger
   const confirmDelete = (id: number) => {
     setDeleteId(id);
     setIsDeleteOpen(true);
   };
 
-  // ✅ Delete execution
   const handleDelete = async () => {
     if (!deleteId) return;
     setIsProcessing(true);
@@ -236,20 +211,19 @@ export default function InternationalTourDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete tour");
 
-      showModal("🗑️ Tour deleted successfully!", "success");
+      showModal(" Tour deleted successfully!", "success");
       setDeleteId(null);
       fetchTours();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Delete Error:", error.message);
-      showModal(`⚠️ Could not delete tour: ${error.message}`, "error");
+      console.error(" Delete Error:", error.message);
+      showModal(` Could not delete tour: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
       setIsDeleteOpen(false);
     }
   };
 
-  // ✅ Toggle active/inactive
   const toggleActive = async (tour: Tour) => {
     setIsProcessing(true);
     try {
@@ -260,27 +234,24 @@ export default function InternationalTourDashboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to toggle active");
-      showModal("✅ Status updated successfully!", "success");
+      showModal(" Status updated successfully!", "success");
       fetchTours();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Toggle Error:", error.message);
-      showModal(`⚠️ Could not update status: ${error.message}`, "error");
+      console.error(" Toggle Error:", error.message);
+      showModal(` Could not update status: ${error.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
   };
   
-  // Helper to determine active status color
   const isAnyActionDisabled = isProcessing || isLoading;
 
-  // Filter tours for display sections
   const backgroundTours = tours.filter(tour => tour.backgroundUrl);
   const sliderTours = tours.filter(tour => tour.sliderImages.length > 0);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto mt-8 md:mt-12">
-      {/* Page Title */}
       <h1
         className="text-3xl font-extrabold mb-8 text-center text-yellow-400 flex items-center justify-center"
         id="international-tour-heading"
@@ -288,7 +259,6 @@ export default function InternationalTourDashboard() {
         <GlobeAsiaAustraliaIcon className="h-8 w-8 mr-2" /> International Tours Dashboard
       </h1>
 
-      {/* Loading/Processing Overlay (Consistent Hajj UI) */}
       {(isProcessing || isLoading) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -300,7 +270,6 @@ export default function InternationalTourDashboard() {
         </div>
       )}
 
-      {/* --- Upload / Edit Form (Consistent Hajj UI) --- */}
       <form
         onSubmit={handleSubmit}
         ref={formRef}
@@ -311,7 +280,6 @@ export default function InternationalTourDashboard() {
           <PlusCircleIcon className="h-5 w-5 ml-2" />
         </h2>
         
-        {/* Title Input */}
         <input
           type="text"
           placeholder="Tour Title (e.g., European Grand Tour)"
@@ -322,7 +290,6 @@ export default function InternationalTourDashboard() {
           required
         />
         
-        {/* Description Input */}
         <textarea
           placeholder="Detailed Description of the Tour"
           value={description}
@@ -333,11 +300,9 @@ export default function InternationalTourDashboard() {
           required
         />
         
-        {/* Image Type Selector (Disabled during edit) */}
         <select
           value={imageType}
           onChange={(e) => setImageType(e.target.value as "background" | "slider")}
-          // Category/Type is fixed when editing an existing item
           disabled={editingId !== null || isProcessing} 
           className={`border border-gray-700 p-3 w-full rounded-lg focus:ring-2 focus:ring-yellow-400 bg-black text-white appearance-none transition-colors cursor-pointer ${
             editingId !== null ? "opacity-60 cursor-not-allowed" : ""
@@ -350,9 +315,7 @@ export default function InternationalTourDashboard() {
             <p className="text-xs text-gray-400">Image Type is fixed when editing an existing tour.</p>
         )}
 
-        {/* File Input */}
         {imageType === "background" ? (
-            // Background Image File Input
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
                 <label className="text-gray-400 flex-shrink-0 flex items-center">
                     <PhotoIcon className="h-5 w-5 mr-2" /> 
@@ -368,7 +331,6 @@ export default function InternationalTourDashboard() {
                 />
             </div>
         ) : (
-            // Slider Images File Input
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-3 border border-dashed border-gray-700 rounded-lg">
                 <label className="text-gray-400 flex-shrink-0 flex items-center">
                     <QueueListIcon className="h-5 w-5 mr-2" /> 
@@ -386,7 +348,6 @@ export default function InternationalTourDashboard() {
             </div>
         )}
 
-        {/* Form Actions */}
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
@@ -408,7 +369,6 @@ export default function InternationalTourDashboard() {
         </div>
       </form>
 
-      {/* --- Packages List --- */}
 
       
       {!isLoading && tours.length === 0 ? (
@@ -417,7 +377,6 @@ export default function InternationalTourDashboard() {
         </p>
       ) : (
         <>
-            {/* Background Tours Section */}
             {backgroundTours.length > 0 && (
                 <div className="mb-10">
                     <h3 className="text-xl font-semibold text-yellow-400 mb-4 flex items-center">
@@ -431,7 +390,6 @@ export default function InternationalTourDashboard() {
                 </div>
             )}
 
-            {/* Slider Tours Section */}
             {sliderTours.length > 0 && (
                 <div className="mb-10">
                     <h3 className="text-xl font-semibold text-yellow-400 mb-4 flex items-center">
@@ -447,7 +405,6 @@ export default function InternationalTourDashboard() {
         </>
       )}
 
-      {/* --- MODAL: Status Message (Consistent Hajj UI) --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -478,7 +435,6 @@ export default function InternationalTourDashboard() {
         </Dialog>
       </Transition>
 
-      {/* --- MODAL: Delete Confirmation (Consistent Hajj UI) --- */}
       <Transition appear show={isDeleteOpen} as={Fragment}>
         <Dialog
           as="div"
@@ -518,7 +474,6 @@ export default function InternationalTourDashboard() {
   );
 }
 
-// --- Helper Component for consistent Tour Card UI ---
 interface TourCardProps {
     tour: Tour;
     isAnyActionDisabled: boolean;
@@ -558,7 +513,6 @@ const TourCard: React.FC<TourCardProps> = ({ tour, isAnyActionDisabled, toggleAc
             
             <p className="text-sm text-gray-300 line-clamp-3 mb-3">{tour.description}</p>
             
-            {/* Action Buttons (Consistent Hajj UI) */}
             <div className="flex justify-between gap-2 mt-auto pt-3 border-t border-gray-700">
                 <button
                     onClick={() => toggleActive(tour)}

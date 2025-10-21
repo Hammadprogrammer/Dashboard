@@ -7,7 +7,6 @@ import { Dialog, Transition } from "@headlessui/react";
 import { StarIcon, TrashIcon, PencilIcon } from "@heroicons/react/24/outline";
 
 interface Testimonial {
-// ... (Interface is the same)
   id: number;
   rating: number;
   description: string;
@@ -16,12 +15,10 @@ interface Testimonial {
   title: string;
 }
 
-// Status Messages Map (for modals)
 const STATUS_MESSAGES = {
-// ... (Constants are the same)
-  success: { title: "Success 🎉", iconColor: "text-green-500" },
-  error: { title: "Error ❌", iconColor: "text-red-500" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-400" }, 
+  success: { title: "Success ", iconColor: "text-green-500" },
+  error: { title: "Error ", iconColor: "text-red-500" },
+  warning: { title: "Warning ", iconColor: "text-yellow-400" }, 
 } as const;
 
 
@@ -69,8 +66,8 @@ export default function TestimonialDashboard() {
       setData(result);
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Fetch error:", error.message);
-      showModal(`⚠️ Failed to fetch data: ${error.message}`, "error");
+      console.error(" Fetch error:", error.message);
+      showModal(` Failed to fetch data: ${error.message}`, "error");
     } finally {
       setFetching(false);
     }
@@ -81,7 +78,6 @@ export default function TestimonialDashboard() {
   }, []);
 
   const resetForm = () => {
-// ... (Reset logic is the same)
     setDescription("");
     setName("");
     setTitle("");
@@ -95,7 +91,6 @@ export default function TestimonialDashboard() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-// ... (Submit logic is the same)
     e.preventDefault();
     setLoading(true);
 
@@ -103,23 +98,23 @@ export default function TestimonialDashboard() {
 
     if (!description.trim() || !name.trim() || !title.trim() || isNaN(ratingValue)) {
       setLoading(false);
-      return showModal("⚠️ All fields are required and Rating must be a number.", "warning");
+      return showModal(" All fields are required and Rating must be a number.", "warning");
     }
 
     if (ratingValue < 1 || ratingValue > 5) {
       setLoading(false);
-      return showModal("⚠️ Rating must be between 1.0 and 5.0", "warning");
+      return showModal(" Rating must be between 1.0 and 5.0", "warning");
     }
 
     const hasNewFile = imageFile && imageFile.size > 0;
     if (!editingId && !hasNewFile) {
         setLoading(false);
-        return showModal("⚠️ Please upload an image for a new entry", "warning");
+        return showModal(" Please upload an image for a new entry", "warning");
     }
     
     if (editingId && !hasNewFile && !currentImage) {
         setLoading(false);
-        return showModal("⚠️ Please upload a new image or ensure one exists", "warning");
+        return showModal(" Please upload a new image or ensure one exists", "warning");
     }
 
     const formData = new FormData();
@@ -147,20 +142,19 @@ export default function TestimonialDashboard() {
         throw new Error(result.details || result.error || "Failed to save testimonial");
       }
 
-      showModal(editingId ? "✅ Testimonial updated!" : "✅ Testimonial added!", "success");
+      showModal(editingId ? " Testimonial updated!" : "Testimonial added!", "success");
       resetForm();
       fetchData();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save error:", error.message);
-      showModal(`❌ Failed to save testimonial: ${error.message}`, "error");
+      console.error(" Save error:", error.message);
+      showModal(` Failed to save testimonial: ${error.message}`, "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleEdit = (entry: Testimonial) => {
-// ... (Edit logic is the same)
     setEditingId(entry.id);
     setDescription(entry.description);
     setName(entry.name);
@@ -184,7 +178,6 @@ export default function TestimonialDashboard() {
   };
 
   const handleDelete = async () => {
-// ... (Delete logic is the same)
     if (!deleteId) return;
     try {
       setLoading(true);
@@ -197,20 +190,19 @@ export default function TestimonialDashboard() {
         throw new Error(result.details || result.error || "Failed to delete");
       }
       
-      showModal("🗑️ Testimonial deleted", "success");
+      showModal(" Testimonial deleted", "success");
       setDeleteId(null);
       fetchData();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Delete error:", error.message);
-      showModal(`❌ Failed to delete testimonial: ${error.message}`, "error");
+      console.error(" Delete error:", error.message);
+      showModal(` Failed to delete testimonial: ${error.message}`, "error");
     } finally {
       setLoading(false);
       setIsDeleteOpen(false);
     }
   };
 
-  // ✅ FIX: Define isEditing before it's used in the JSX (return statement)
   const isEditing = !!editingId; 
   const isAnyActionDisabled = loading || fetching;
 
@@ -220,7 +212,6 @@ export default function TestimonialDashboard() {
         <StarIcon className="h-8 w-8 inline-block mr-2 text-yellow-400"/> Testimonial Dashboard
       </h1>
 
-      {/* --- GLOBAL LOADER (Overlay) --- */}
       {(isAnyActionDisabled) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -230,7 +221,6 @@ export default function TestimonialDashboard() {
         </div>
       )}
 
-      {/* --- FORM --- */}
       <form
         ref={formRef}
         onSubmit={handleSubmit}
@@ -241,7 +231,6 @@ export default function TestimonialDashboard() {
         </h2>
         
         <textarea
-// ... (Textarea is the same)
           placeholder="Testimonial Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -252,7 +241,6 @@ export default function TestimonialDashboard() {
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
-// ... (Name input is the same)
                 type="text"
                 placeholder="Name"
                 value={name}
@@ -262,7 +250,6 @@ export default function TestimonialDashboard() {
                 required
             />
             <input
-// ... (Title input is the same)
                 type="text"
                 placeholder="Title (e.g., CEO)"
                 value={title}
@@ -272,7 +259,6 @@ export default function TestimonialDashboard() {
                 required
             />
             <input
-// ... (Rating input is the same)
                 type="text"
                 placeholder="Rating (1.0 - 5.0)"
                 value={ratingInput}
@@ -288,7 +274,6 @@ export default function TestimonialDashboard() {
             />
         </div>
 
-        {/* --- Image Input and Current Image Display --- */}
         <div className="p-3 border border-gray-700 rounded-lg bg-gray-800 space-y-2">
             <p className="text-sm text-gray-400">Image File:</p>
             <input
@@ -299,7 +284,6 @@ export default function TestimonialDashboard() {
                 ref={imageInputRef}
                 disabled={loading}
             />
-            {/* THIS IS WHERE THE ERROR WAS. isEditing is now correctly defined */}
             {isEditing && currentImage && (
                 <div className="mt-3 flex items-center p-2 bg-gray-900 rounded-lg">
                     <p className="text-xs text-gray-500 mr-4 flex-shrink-0">Current Image:</p>
@@ -311,7 +295,6 @@ export default function TestimonialDashboard() {
                 </div>
             )}
         </div>
-        {/* --------------------------------------------- */}
 
 
         <div className="flex gap-4 pt-2">
@@ -336,7 +319,6 @@ export default function TestimonialDashboard() {
         </div>
       </form>
 
-      {/* --- LIST --- */}
 
 
       {fetching && data.length === 0 ? (
@@ -393,7 +375,6 @@ export default function TestimonialDashboard() {
         </div>
       )}
 
-      {/* --- MODALS --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"

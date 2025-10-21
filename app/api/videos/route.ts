@@ -1,15 +1,12 @@
-// app/api/videos/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma"; // Ensure this path is correct and the file uses the global instance logic
+import prisma from "@/lib/prisma"; 
 
-// Standard CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// Handle GET request to fetch all videos
 export async function GET() {
   try {
     const videos = await prisma.video.findMany({
@@ -25,29 +22,24 @@ export async function GET() {
   }
 }
 
-// Helper function to sanitize and convert video URL
 function convertToEmbedUrl(videoUrl: string): string {
   let finalUrl = videoUrl;
   
-  // 1. Normalize protocols to ensure proper parsing
   if (finalUrl.startsWith("http://")) {
       finalUrl = finalUrl.replace("http://", "https://");
   }
 
-  // 2. Automatic conversion for common YouTube links to embed format
   if (finalUrl.includes("youtube.com/watch?v=")) {
     finalUrl = finalUrl.replace("watch?v=", "embed/");
   } else if (finalUrl.includes("youtu.be/")) {
     finalUrl = finalUrl.replace("youtu.be/", "youtube.com/embed/");
   }
   
-  // 3. Remove all query parameters (e.g., ?t=, &list=) to clean up the URL
   finalUrl = finalUrl.split('?')[0];
   
   return finalUrl;
 }
 
-// Handle POST request to create or update a video
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -60,18 +52,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Use the robust URL conversion helper
     const finalUrl = convertToEmbedUrl(videoUrl);
 
     if (id) {
-      // Update existing video
       const updatedVideo = await prisma.video.update({
         where: { id: parseInt(id, 10) },
         data: { title, description, videoUrl: finalUrl },
       });
       return NextResponse.json(updatedVideo, { status: 200, headers: corsHeaders });
     } else {
-      // Create new video (defaults isActive to true)
       const newVideo = await prisma.video.create({
         data: { title, description, videoUrl: finalUrl, isActive: true },
       });
@@ -86,12 +75,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle PATCH request to toggle isActive status
 export async function PATCH(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    // Ensure 'true' string is correctly converted to boolean
     const newStatus = searchParams.get("isActive") === 'true'; 
 
     if (!id) {
@@ -116,7 +103,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// Handle DELETE request
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -146,7 +132,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// OPTIONS handler for CORS preflight
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: corsHeaders });
 }

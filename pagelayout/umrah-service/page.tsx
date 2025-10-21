@@ -9,7 +9,7 @@ import {
   TrashIcon,
   CheckCircleIcon,
   XCircleIcon,
-} from "@heroicons/react/24/outline"; // Added necessary icons
+} from "@heroicons/react/24/outline"; 
 
 interface ServiceImage {
   id: number;
@@ -23,15 +23,14 @@ interface UmrahService {
   description: string;
   isActive: boolean;
   heroImage?: string;
-  heroImageId?: string; // Added for completeness, although not used in FE logic
+  heroImageId?: string; 
   serviceImages: ServiceImage[];
 }
 
-// Status Messages Map
 const STATUS_MESSAGES = {
-  success: { title: "Success 🎉", iconColor: "text-green-600" },
-  error: { title: "Error ❌", iconColor: "text-red-600" },
-  warning: { title: "Warning ⚠️", iconColor: "text-yellow-600" },
+  success: { title: "Success ", iconColor: "text-green-600" },
+  error: { title: "Error ", iconColor: "text-red-600" },
+  warning: { title: "Warning ", iconColor: "text-yellow-600" },
 } as const;
 
 
@@ -48,15 +47,12 @@ export default function UmrahServiceDashboard() {
   const [currentHeroImage, setCurrentHeroImage] = useState<string | undefined>(undefined);
   const [currentServiceImages, setCurrentServiceImages] = useState<ServiceImage[]>([]);
 
-  // --- Loading States ---
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  // Use keys to force re-render and clear file inputs
   const [heroKey, setHeroKey] = useState(0);
   const [galleryKey, setGalleryKey] = useState(0);
 
-  // --- Modal state ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error" | "warning">(
@@ -66,7 +62,6 @@ export default function UmrahServiceDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // --- useRef for form scrolling ---
   const formRef = useRef<HTMLFormElement>(null);
 
   const showModal = (msg: string, type: "success" | "error" | "warning") => {
@@ -75,7 +70,6 @@ export default function UmrahServiceDashboard() {
     setIsModalOpen(true);
   };
 
-  // ✅ Fetch services
   const fetchServices = async () => {
     try {
       setFetching(true);
@@ -84,8 +78,8 @@ export default function UmrahServiceDashboard() {
       const data: UmrahService[] = await res.json();
       setServices(data);
     } catch (err) {
-      console.error("❌ Fetch error:", err);
-      showModal("⚠️ Failed to fetch services", "error");
+      console.error(" Fetch error:", err);
+      showModal(" Failed to fetch services", "error");
     } finally {
       setFetching(false);
     }
@@ -93,15 +87,11 @@ export default function UmrahServiceDashboard() {
 
   useEffect(() => {
     fetchServices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Reset form
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    // Preserve imageType unless reset button is clicked explicitly by user
-    // For now, reset to default:
     setImageType("background"); 
     setHeroFile(null);
     setGalleryFiles([]);
@@ -113,37 +103,34 @@ export default function UmrahServiceDashboard() {
     setGalleryKey(prev => prev + 1);
   };
 
-  // ✅ Save or Update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     if (!title.trim() || !description.trim()) {
       setLoading(false);
-      return showModal("⚠️ Title and Description are required", "warning");
+      return showModal(" Title and Description are required", "warning");
     }
 
     const hasNewHeroFile = heroFile && heroFile.size > 0;
     const hasNewGalleryFiles = galleryFiles.length > 0 && galleryFiles.some(f => f.size > 0);
 
-    // Validation
     if (!editingId && !hasNewHeroFile && !hasNewGalleryFiles) {
         setLoading(false);
-        return showModal("⚠️ An image is required for a new service.", "warning");
+        return showModal(" An image is required for a new service.", "warning");
     }
     if (editingId && !hasNewHeroFile && !hasNewGalleryFiles && !currentHeroImage && currentServiceImages.length === 0) {
         setLoading(false);
-        return showModal("⚠️ An image is required, please upload one or ensure one exists.", "warning");
+        return showModal(" An image is required, please upload one or ensure one exists.", "warning");
     }
     
-    // Type checking for Image Switch (Crucial Validation)
     if (imageType === "background" && !isEditing && !hasNewHeroFile) {
         setLoading(false);
-        return showModal("⚠️ Please upload a background image for a new background service.", "warning");
+        return showModal(" Please upload a background image for a new background service.", "warning");
     }
     if (imageType === "services" && !isEditing && !hasNewGalleryFiles) {
         setLoading(false);
-        return showModal("⚠️ Please upload at least one service image for a new gallery service.", "warning");
+        return showModal(" Please upload at least one service image for a new gallery service.", "warning");
     }
 
 
@@ -156,15 +143,12 @@ export default function UmrahServiceDashboard() {
       formData.append("id", String(editingId));
     }
 
-    // Append files based on imageType and presence of new file
     if (imageType === "background" && hasNewHeroFile) {
       formData.append("heroImage", heroFile as File);
-      // NOTE: Do NOT send old serviceImages/heroImageId, backend logic handles deletion based on new file presence
     }
     
     if (imageType === "services" && hasNewGalleryFiles) {
         galleryFiles.forEach((file) => formData.append("serviceImages", file));
-        // NOTE: Do NOT send old serviceImages/heroImageId
     }
 
     try {
@@ -175,19 +159,18 @@ export default function UmrahServiceDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save");
 
-      showModal(editingId ? "✅ Service updated!" : "✅ Service added!", "success");
+      showModal(editingId ? " Service updated!" : " Service added!", "success");
       resetForm();
       fetchServices();
     } catch (err) {
       const error = err as Error;
-      console.error("❌ Save error:", error.message);
-      showModal(`❌ Failed to save service: ${error.message}`, "error");
+      console.error(" Save error:", error.message);
+      showModal(` Failed to save service: ${error.message}`, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Edit
   const handleEdit = (service: UmrahService) => {
     setEditingId(service.id);
     setTitle(service.title);
@@ -208,7 +191,6 @@ export default function UmrahServiceDashboard() {
       setCurrentServiceImages([]);
     }
 
-    // Clear file inputs for *new* selection
     setHeroFile(null);
     setGalleryFiles([]);
     setHeroKey(prev => prev + 1); 
@@ -217,7 +199,6 @@ export default function UmrahServiceDashboard() {
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ✅ Delete (uses utility modals)
   const confirmDelete = (id: number) => {
     setDeleteId(id);
     setIsDeleteOpen(true);
@@ -231,19 +212,18 @@ export default function UmrahServiceDashboard() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");
-      showModal("🗑️ Service deleted", "success");
+      showModal(" Service deleted", "success");
       setDeleteId(null);
       fetchServices();
     } catch (err) {
-      console.error("❌ Delete error:", err);
-      showModal("❌ Failed to delete service", "error");
+      console.error(" Delete error:", err);
+      showModal(" Failed to delete service", "error");
     } finally {
       setLoading(false);
       setIsDeleteOpen(false);
     }
   };
 
-  // ✅ Toggle active/inactive
   const toggleActive = async (id: number, current: boolean) => {
     if(loading || fetching) return;
     try {
@@ -254,11 +234,11 @@ export default function UmrahServiceDashboard() {
         body: JSON.stringify({ id, isActive: !current }),
       });
       if (!res.ok) throw new Error("Failed to toggle");
-      showModal("✅ Status updated!", "success");
+      showModal(" Status updated!", "success");
       fetchServices();
     } catch (err) {
-      console.error("❌ Toggle error:", err);
-      showModal("⚠️ Could not update status", "error");
+      console.error(" Toggle error:", err);
+      showModal(" Could not update status", "error");
     } finally {
       setLoading(false);
     }
@@ -273,7 +253,6 @@ export default function UmrahServiceDashboard() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-center text-yellow-400" id="umrah-service">🕋 Umrah Services Dashboard</h1>
 
-      {/* --- GLOBAL LOADER --- */}
       {(loading || fetching) && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
@@ -283,7 +262,6 @@ export default function UmrahServiceDashboard() {
         </div>
       )}
 
-      {/* --- FORM --- */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-900 text-white shadow-2xl rounded-2xl p-6 mb-10 border border-gray-700"
@@ -324,7 +302,6 @@ export default function UmrahServiceDashboard() {
           <option value="services">Service Gallery Images</option>
         </select>
 
-        {/* --- Image Inputs --- */}
         <div className="p-3 border border-dashed border-gray-700 rounded-lg space-y-3">
           <p className="text-sm text-gray-400 font-semibold">
               {imageType === "background" 
@@ -343,7 +320,6 @@ export default function UmrahServiceDashboard() {
                 key={heroKey}
                 disabled={loading}
               />
-              {/* Preview */}
               {(heroFile || currentHeroImage) && (
                 <div className="mt-4">
                   <p className="text-sm text-gray-400 mb-1">Preview:</p>
@@ -370,11 +346,9 @@ export default function UmrahServiceDashboard() {
                 key={galleryKey}
                 disabled={loading}
               />
-              {/* Preview (Combines new and current images for preview) */}
               <div className="mt-4">
                 <p className="text-sm text-gray-400 mb-1">Preview (New + Current):</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {/* New files */}
                   {galleryFiles.map((file, index) => (
                     <img
                       key={index}
@@ -383,7 +357,6 @@ export default function UmrahServiceDashboard() {
                       className="w-full h-16 object-cover rounded-lg border border-yellow-500"
                     />
                   ))}
-                  {/* Current files (only if no new files are selected) */}
                   {galleryFiles.length === 0 && currentServiceImages.map((img) => (
                     <img
                       key={img.id}
@@ -398,7 +371,6 @@ export default function UmrahServiceDashboard() {
           )}
         </div>
 
-        {/* Form Actions */}
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
@@ -420,14 +392,12 @@ export default function UmrahServiceDashboard() {
         </div>
       </form>
 
-      {/* --- LISTS --- */}
       {!fetching && services.length === 0 ? (
         <p className="text-center text-gray-500 p-10 bg-gray-900 rounded-xl border border-gray-700">
             No Umrah services have been created yet.
         </p>
       ) : (
         <>
-          {/* Background Services List */}
           {heroServices.length > 0 && (
             <div className="mb-10">
               <h1 className="text-2xl font-bold mb-4 text-gray-200 border-b border-gray-700 pb-2">Hero/Background Services</h1>
@@ -482,7 +452,6 @@ export default function UmrahServiceDashboard() {
             </div>
           )}
 
-          {/* Gallery Services List */}
           {galleryServices.length > 0 && (
             <div>
               <h1 className="text-2xl font-bold mb-4 text-gray-200 border-b border-gray-700 pb-2">Gallery/Image Set Services</h1>
@@ -542,7 +511,6 @@ export default function UmrahServiceDashboard() {
         </>
       )}
 
-      {/* --- MODALS --- */}
       <Transition appear show={isModalOpen} as={Fragment}>
         <Dialog
           as="div"

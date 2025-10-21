@@ -1,7 +1,5 @@
-// app/api/custom-pilgrimage/route.ts (UPDATED with Base64 upload logic)
 
 import { NextRequest, NextResponse } from "next/server";
-// Make sure this file correctly loads and configures Cloudinary using ENV variables
 import cloudinary from "@/lib/cloudinary"; 
 import prisma from "@/lib/prisma";
 
@@ -11,7 +9,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ---------------- GET ----------------
 export async function GET() {
   try {
     const data = await prisma.customPilgrimage.findMany({
@@ -29,7 +26,6 @@ export async function GET() {
   }
 }
 
-// ---------------- POST (Create + Update) ----------------
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -42,7 +38,6 @@ export async function POST(req: NextRequest) {
     const isActiveStr = formData.get("isActive") as string | null;
     const heroFile = formData.get("heroImage") as File | null;
 
-    // --- Basic Validation ---
     if (!title || !subtitle1 || !subtitle2 || !subtitle3 || !subtitle4) {
       return NextResponse.json(
         { error: "All title and subtitle fields are required" },
@@ -54,9 +49,7 @@ export async function POST(req: NextRequest) {
     let heroImageUrl: string | undefined;
     let heroImageId: string | undefined;
 
-    // --- Base64 Cloudinary Upload FIX ---
     if (heroFile && heroFile.size > 0) {
-      // Convert File to a Base64 string
       const buffer = Buffer.from(await heroFile.arrayBuffer());
       const base64Image = `data:${heroFile.type};base64,${buffer.toString("base64")}`;
 
@@ -68,12 +61,9 @@ export async function POST(req: NextRequest) {
       heroImageUrl = uploadRes.secure_url;
       heroImageId = uploadRes.public_id;
     }
-    // ------------------------------------
 
-    // --- Update or Create ---
     let saved;
     if (id) {
-      // --- UPDATE ---
       const existing = await prisma.customPilgrimage.findUnique({
         where: { id: parseInt(id) },
       });
@@ -85,7 +75,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Delete old image if a new image was uploaded
       if (heroImageId && existing.heroImageId) {
         await cloudinary.uploader.destroy(existing.heroImageId);
       }
@@ -99,13 +88,11 @@ export async function POST(req: NextRequest) {
           subtitle3,
           subtitle4,
           isActive,
-          // Use new image if uploaded, otherwise keep existing
           heroImage: heroImageUrl ?? existing.heroImage,
           heroImageId: heroImageId ?? existing.heroImageId,
         },
       });
     } else {
-      // --- CREATE ---
       if (!heroImageId) {
         return NextResponse.json(
           { error: "Image is required for new entry" },
@@ -129,7 +116,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(saved, { headers: corsHeaders });
   } catch (error: any) {
-    // This will catch Cloudinary errors, Prisma errors, and other POST function errors
     console.error("CustomPilgrimage POST error:", error.message);
     return NextResponse.json(
       { error: "Failed to save data", details: error.message },
@@ -138,7 +124,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ---------------- PATCH (toggle active/inactive) ----------------
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -164,7 +149,6 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ---------------- DELETE ----------------
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -187,7 +171,6 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (existing.heroImageId) {
-      // Delete image from Cloudinary
       await cloudinary.uploader.destroy(existing.heroImageId);
     }
 
@@ -208,7 +191,6 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// ---------------- OPTIONS ----------------
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200, headers: corsHeaders });
 }
