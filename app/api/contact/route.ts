@@ -1,3 +1,5 @@
+export const runtime = "nodejs"; 
+
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
@@ -32,7 +34,6 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
     const {
       name,
       fatherName,
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
       service,
       message,
       recaptchaToken,
-    } = body;
+    } = await req.json();
 
     const validCaptcha = await verifyRecaptcha(recaptchaToken);
     if (!validCaptcha) {
@@ -53,32 +54,42 @@ export async function POST(req: Request) {
       );
     }
 
-    const { EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE, EMAIL_USER, EMAIL_PASS, EMAIL_FROM } =
-      process.env;
+    const {
+      EMAIL_HOST,
+      EMAIL_PORT,
+      EMAIL_SECURE,
+      EMAIL_USER,
+      EMAIL_PASS,
+      EMAIL_FROM,
+    } = process.env;
 
     if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
-      throw new Error("Missing required email environment variables");
+      throw new Error("Missing email environment variables");
     }
 
     const transporter = nodemailer.createTransport({
       host: EMAIL_HOST,
       port: Number(EMAIL_PORT) || 587,
-      secure: EMAIL_SECURE === "true",
+      secure: false, 
+      requireTLS: true,
       auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS,
       },
+      tls: {
+        ciphers: "SSLv3",
+      },
     });
 
-    // ✅ Verify SMTP connection (for live debugging)
-    await transporter.verify().then(() => {
-      console.log("✅ SMTP connection successful");
-    }).catch((err) => {
-      console.error("❌ SMTP connection failed:", err);
-      throw new Error("SMTP connection failed");
-    });
+    await transporter
+      .verify()
+      .then(() => console.log(" SMTP connection successful"))
+      .catch((err) => {
+        console.error(" SMTP connection failed:", err);
+        throw new Error("SMTP connection failed");
+      });
 
-    // ✅ Mail options
+    // ✅ Compose mail
     const mailOptions = {
       from: EMAIL_FROM || EMAIL_USER,
       to: EMAIL_USER,
@@ -96,7 +107,7 @@ export async function POST(req: Request) {
       `,
     };
 
-    // ✅ Send email
+    // ✅ Send mail
     await transporter.sendMail(mailOptions);
 
     return NextResponse.json(
@@ -104,7 +115,7 @@ export async function POST(req: Request) {
       { headers: corsHeaders }
     );
   } catch (error: any) {
-    console.error("❌ Email sending error:", {
+    console.error(" Email sending error:", {
       message: error.message,
       stack: error.stack,
       code: error.code,
