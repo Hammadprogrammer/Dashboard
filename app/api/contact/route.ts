@@ -2,22 +2,28 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", 
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// ✅ reCAPTCHA verify
 async function verifyRecaptcha(token: string) {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
-  const res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${secret}&response=${token}`,
-  });
+  try {
+    const secret = process.env.RECAPTCHA_SECRET_KEY;
+    if (!secret) throw new Error("Missing RECAPTCHA_SECRET_KEY");
 
-  const data = await res.json();
-  return data.success;
+    const res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `secret=${secret}&response=${token}`,
+    });
+
+    const data = await res.json();
+    return data.success;
+  } catch (err) {
+    console.error("reCAPTCHA verification failed:", err);
+    return false;
+  }
 }
 
 export async function OPTIONS() {
@@ -26,6 +32,7 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   try {
+    const body = await req.json();
     const {
       name,
       fatherName,
@@ -36,29 +43,45 @@ export async function POST(req: Request) {
       service,
       message,
       recaptchaToken,
-    } = await req.json();
+    } = body;
 
     const validCaptcha = await verifyRecaptcha(recaptchaToken);
     if (!validCaptcha) {
       return NextResponse.json(
-        { message: "Invalid reCAPTCHA" },
+        { message: "Invalid reCAPTCHA. Please try again." },
         { status: 400, headers: corsHeaders }
       );
     }
 
+    const { EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE, EMAIL_USER, EMAIL_PASS, EMAIL_FROM } =
+      process.env;
+
+    if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+      throw new Error("Missing required email environment variables");
+    }
+
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: process.env.EMAIL_SECURE === "true",
+      host: EMAIL_HOST,
+      port: Number(EMAIL_PORT) || 587,
+      secure: EMAIL_SECURE === "true",
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
       },
     });
 
+    // ✅ Verify SMTP connection (for live debugging)
+    await transporter.verify().then(() => {
+      console.log("✅ SMTP connection successful");
+    }).catch((err) => {
+      console.error("❌ SMTP connection failed:", err);
+      throw new Error("SMTP connection failed");
+    });
+
+    // ✅ Mail options
     const mailOptions = {
-      from: process.env.EMAIL_FROM,
-      to: process.env.EMAIL_USER,
+      from: EMAIL_FROM || EMAIL_USER,
+      to: EMAIL_USER,
       subject: `New Contact Form Submission from ${name}`,
       html: `
         <h2>New Contact Form Submission</h2>
@@ -73,16 +96,26 @@ export async function POST(req: Request) {
       `,
     };
 
+    // ✅ Send email
     await transporter.sendMail(mailOptions);
 
     return NextResponse.json(
       { message: "Message sent successfully!" },
       { headers: corsHeaders }
     );
-  } catch (error) {
-    console.error("Email sending error:", error);
+  } catch (error: any) {
+    console.error("❌ Email sending error:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      response: error.response,
+    });
+
     return NextResponse.json(
-      { message: "Failed to send message. Please try again later." },
+      {
+        message:
+          "Failed to send message. Please try again later or check server logs.",
+      },
       { status: 500, headers: corsHeaders }
     );
   }
