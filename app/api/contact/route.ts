@@ -1,4 +1,4 @@
-export const runtime = "nodejs"; // required for nodemailer to work on Vercel
+export const runtime = "nodejs"; // ensures nodemailer works on Vercel
 
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
@@ -11,10 +11,10 @@ const corsHeaders = {
 
 // ✅ reCAPTCHA verification
 async function verifyRecaptcha(token: string) {
-  try {
-    const secret = process.env.RECAPTCHA_SECRET_KEY;
-    if (!secret) throw new Error("Missing RECAPTCHA_SECRET_KEY");
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secret) throw new Error("Missing RECAPTCHA_SECRET_KEY");
 
+  try {
     const res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -33,32 +33,21 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-// ✅ POST handler for contact form
 export async function POST(req: Request) {
-  const reqData = await req.json(); // Use a local variable to capture request body
-  const {
-    name,
-    fatherName,
-    nic,
-    category,
-    email,
-    phone,
-    service,
-    message,
-    recaptchaToken,
-  } = reqData;
-
-  // Get environment variables for logging and validation
-  const {
-    EMAIL_HOST,
-    EMAIL_PORT,
-    EMAIL_USER,
-    EMAIL_PASS,
-    EMAIL_FROM,
-  } = process.env;
-
   try {
-    // Verify reCAPTCHA
+    const {
+      name,
+      fatherName,
+      nic,
+      category,
+      email,
+      phone,
+      service,
+      message,
+      recaptchaToken,
+    } = await req.json();
+
+    // ✅ Step 1: reCAPTCHA validation
     const validCaptcha = await verifyRecaptcha(recaptchaToken);
     if (!validCaptcha) {
       return NextResponse.json(
@@ -67,64 +56,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate env variables
+    // ✅ Step 2: Validate env variables
+    const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM } =
+      process.env;
+
     if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
-      // Log an error if environment variables are missing
-      console.error("Missing critical email environment variables in Vercel settings.");
-      throw new Error("Missing required email environment variables");
+      console.error("❌ Missing SMTP ENV vars");
+      return NextResponse.json(
+        { message: "Server email configuration is missing." },
+        { status: 500, headers: corsHeaders }
+      );
     }
 
-    // 🛠️ CORRECTED: GoDaddy/SecureServer SMTP configuration
-    // Use the official Nodemailer guide for secure connections on Vercel
+    // ✅ Step 3: GoDaddy / SecureServer SMTP configuration
     const transporter = nodemailer.createTransport({
-      host: EMAIL_HOST, // Should be smtpout.secureserver.net
+      host: EMAIL_HOST, // smtpout.secureserver.net
       port: Number(EMAIL_PORT) || 587,
-      secure: false, // Use false for port 587 (STARTTLS)
-      requireTLS: true, // Force STARTTLS
+      secure: false, // Use false for port 587
       auth: {
         user: EMAIL_USER,
-        pass: EMAIL_PASS, // Make sure this is the App Password if 2FA is on
+        pass: EMAIL_PASS,
       },
-      // Added robust timeouts to catch connection issues quickly
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 5000, // 5 seconds
-      // Removed: tls: { ciphers: "SSLv3" } - Often causes issues unnecessarily
+      tls: {
+        rejectUnauthorized: false, // Important for GoDaddy SSL
+      },
+      connectionTimeout: 20000, // 20 seconds
     });
 
-    // ✅ Verify SMTP connection
-    await transporter
-      .verify()
-      .then(() => console.log("✅ SMTP connection successful on Vercel"))
-      .catch((err) => {
-        // 🚨 IMPORTANT: This will show the exact GoDaddy/Vercel error in the logs
-        console.error("❌ SMTP connection failed. Check GoDaddy Credentials and Host/Port.", {
-          host: EMAIL_HOST,
-          port: EMAIL_PORT,
-          user: EMAIL_USER,
-          error: { code: err.code, message: err.message, response: err.response },
-        });
-        // Throw an explicit error for the user/system to see
-        throw new Error("SMTP connection failed: " + (err.code || err.message));
-      });
+    // ✅ Step 4: Verify connection only locally (skip on Vercel)
+    if (process.env.NODE_ENV === "development") {
+      await transporter.verify();
+      console.log("SMTP connection verified locally ✅");
+    }
 
-    // ✅ Email content
+    // ✅ Step 5: Prepare mail content
     const mailOptions = {
       from: EMAIL_FROM || EMAIL_USER,
-      to: EMAIL_USER,
+      to: EMAIL_USER, // send to yourself
+      replyTo: email || EMAIL_USER,
       subject: `New Contact Form Submission from ${name}`,
       html: `
         <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Father's Name:</strong> ${fatherName}</p>
-        <p><strong>NIC:</strong> ${nic || "N/A"}</p>
-        <p><strong>Category:</strong> ${category}</p>
-        <p><strong>Email:</strong> ${email || "N/A"}</p>
-        <p><strong>Phone:</strong> ${phone}</p>
-        <p><strong>Service:</strong> ${service}</p>
-        <p><strong>Message:</strong> ${message || "N/A"}</p>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Father's Name:</b> ${fatherName}</p>
+        <p><b>NIC:</b> ${nic || "N/A"}</p>
+        <p><b>Category:</b> ${category}</p>
+        <p><b>Email:</b> ${email || "N/A"}</p>
+        <p><b>Phone:</b> ${phone}</p>
+        <p><b>Service:</b> ${service}</p>
+        <p><b>Message:</b> ${message || "N/A"}</p>
       `,
     };
 
+    // ✅ Step 6: Send the email
     await transporter.sendMail(mailOptions);
 
     return NextResponse.json(
@@ -132,20 +116,9 @@ export async function POST(req: Request) {
       { headers: corsHeaders }
     );
   } catch (error: any) {
-    // 🚨 Log all error details when sending mail fails
-    console.error(" Email sending error:", {
-      message: error.message,
-      code: error.code,
-      response: error.response,
-      // Log the required form data on failure for context
-      formData: { name, email, phone, service },
-    });
-
+    console.error("❌ Email send failed:", error.message);
     return NextResponse.json(
-      {
-        message:
-          "Failed to send message. Please try again later or check server logs.",
-      },
+      { message: "Failed to send message. Please try again later." },
       { status: 500, headers: corsHeaders }
     );
   }
