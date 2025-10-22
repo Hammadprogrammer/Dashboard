@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
-      to: "info@almuallimtravels.com", 
+      to: "hammadzahid7ctech@gmail.com", 
       subject: `New Contact Form from ${name}`,
       html,
     });
