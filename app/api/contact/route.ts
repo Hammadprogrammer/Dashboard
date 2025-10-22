@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST, 
-  port: Number(process.env.EMAIL_PORT || 587),
-  secure: false, 
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT || 465),
+  secure: process.env.EMAIL_SECURE === "true", 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -12,6 +12,11 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false, 
   },
+});
+
+transporter.verify((error, success) => {
+  if (error) console.error("SMTP Connection Error:", error);
+  else console.log(" SMTP Server Ready to Send Emails!");
 });
 
 const corsHeaders = {
@@ -43,7 +48,8 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, fatherName, nic, category, email, phone, service, message, recaptchaToken } = body;
+    const { name, fatherName, nic, category, email, phone, service, message, recaptchaToken } =
+      body;
 
     if (!name || !fatherName || !category || !phone || !service || !recaptchaToken) {
       return NextResponse.json(
@@ -74,14 +80,17 @@ export async function POST(request: Request) {
 
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
-      to: "hammadzahid7ctech@gmail.com", 
+      to: "info@almuallimtravels.com", 
       subject: `New Contact Form from ${name}`,
       html,
     });
 
-    return NextResponse.json({ message: " Email sent successfully!" }, { headers: corsHeaders });
+    return NextResponse.json(
+      { message: " Email sent successfully!" },
+      { headers: corsHeaders }
+    );
   } catch (error: any) {
-    console.error("Email send error:", error);
+    console.error(" Email send error:", error);
     return NextResponse.json(
       { message: " Email sending failed", error: String(error) },
       { status: 500, headers: corsHeaders }
