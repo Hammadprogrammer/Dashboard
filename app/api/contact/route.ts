@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 465),
-  secure: process.env.EMAIL_SECURE === 'true',
+  host: process.env.EMAIL_HOST, 
+  port: Number(process.env.EMAIL_PORT || 587),
+  secure: false, 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, 
   },
 });
 
@@ -22,9 +25,10 @@ async function verifyRecaptcha(token: string) {
   if (!secret) return false;
 
   try {
-    const res = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`, {
-      method: 'POST',
-    });
+    const res = await fetch(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`,
+      { method: "POST" }
+    );
     const data = await res.json();
     return data.success;
   } catch {
@@ -60,12 +64,12 @@ export async function POST(request: Request) {
       <h2>New Contact Form Submission</h2>
       <p><strong>Name:</strong> ${name}</p>
       <p><strong>Father's Name:</strong> ${fatherName}</p>
-      <p><strong>NIC:</strong> ${nic || 'N/A'}</p>
+      <p><strong>NIC:</strong> ${nic || "N/A"}</p>
       <p><strong>Category:</strong> ${category}</p>
-      <p><strong>Email:</strong> ${email || 'N/A'}</p>
+      <p><strong>Email:</strong> ${email || "N/A"}</p>
       <p><strong>Phone:</strong> ${phone}</p>
       <p><strong>Service:</strong> ${service}</p>
-      <p><strong>Message:</strong> ${message || 'N/A'}</p>
+      <p><strong>Message:</strong> ${message || "N/A"}</p>
     `;
 
     await transporter.sendMail({
@@ -75,11 +79,11 @@ export async function POST(request: Request) {
       html,
     });
 
-    return NextResponse.json({ message: "Email sent successfully!" }, { headers: corsHeaders });
+    return NextResponse.json({ message: " Email sent successfully!" }, { headers: corsHeaders });
   } catch (error: any) {
     console.error("Email send error:", error);
     return NextResponse.json(
-      { message: "Email sending failed", error: String(error) },
+      { message: " Email sending failed", error: String(error) },
       { status: 500, headers: corsHeaders }
     );
   }
